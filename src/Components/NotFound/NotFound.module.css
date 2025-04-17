@@ -1,0 +1,23 @@
+.notfoundButton {
+    background-color: var(--form_color);
+    transition: var(--theme_transition);
+}
+
+.NotFoundBackGround {
+    height: 85vh;
+    background-color: var(--body_background);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: var(--theme_transition);
+}
+
+.notFoundH1{
+    color: var(--text_color);
+    transition: var(--theme_transition);
+}
+
+.notfoundCode{
+    color: var(--form_color);
+    transition: var(--theme_transition);
+}

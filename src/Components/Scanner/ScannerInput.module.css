@@ -1,0 +1,261 @@
+.scannerContainer {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--body_background);
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.scannerContent {
+  max-width: 800px;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.title {
+  font-size: 4rem;
+  font-weight: 800;
+  margin-bottom: 1.5rem;
+  line-height: 1.2;
+  background: linear-gradient(45deg, #636E97, #8B95B9);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 20px rgba(99, 110, 151, 0.3);
+}
+
+.highlight {
+  color: #636E97;
+  -webkit-text-fill-color: #636E97;
+}
+
+.subtitle {
+  font-size: 1.5rem;
+  color: var(--text_color);
+  margin-bottom: 3rem;
+  opacity: 0.8;
+}
+
+.scannerForm {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.inputWrapper {
+  position: relative;
+  margin-bottom: 2rem;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.inputContainer {
+  position: relative;
+  width: 100%;
+}
+
+.urlInput {
+  width: 100%;
+  padding: 1.5rem 2rem;
+  padding-right: 4rem;
+  font-size: 1.2rem;
+  border: 2px solid rgba(99, 110, 151, 0.2);
+  border-radius: 50px;
+  background: var(--card_background);
+  color: var(--text_color);
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
+}
+
+.urlInput:focus {
+  outline: none;
+  border-color: #636E97;
+  box-shadow: 0 0 20px rgba(99, 110, 151, 0.2);
+}
+
+.inputDecoration {
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulseDot {
+  width: 12px;
+  height: 12px;
+  background: #636E97;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+  position: relative;
+  z-index: 3;
+  box-shadow: 0 0 10px rgba(99, 110, 151, 0.5);
+}
+
+.pulseRing {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  border: 2px solid #636E97;
+  border-radius: 50%;
+  animation: ringPulse 2s infinite;
+  z-index: 2;
+  box-shadow: 0 0 10px rgba(99, 110, 151, 0.3);
+}
+
+.scanButton {
+  background: linear-gradient(45deg, #636E97, #8B95B9);
+  color: white;
+  border: none;
+  padding: 1.2rem 3rem;
+  font-size: 1.2rem;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.scanButton:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(99, 110, 151, 0.3);
+}
+
+.scanButton:active {
+  transform: translateY(-1px);
+}
+
+.buttonArrow {
+  font-size: 1.5rem;
+  transition: transform 0.3s ease;
+}
+
+.scanButton:hover .buttonArrow {
+  transform: translateX(5px);
+}
+
+.scanButton.loading {
+  background: #636E97;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+.scannerVisual {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  opacity: 0.3;
+}
+
+.scannerBeam {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #636E97, transparent);
+  animation: scan 2s linear infinite;
+}
+
+.scannerGrid {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(99, 110, 151, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 110, 151, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+  animation: gridMove 20s linear infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; box-shadow: 0 0 10px rgba(99, 110, 151, 0.5); }
+  50% { transform: scale(1.5); opacity: 0.5; box-shadow: 0 0 20px rgba(99, 110, 151, 0.8); }
+  100% { transform: scale(1); opacity: 1; box-shadow: 0 0 10px rgba(99, 110, 151, 0.5); }
+}
+
+@keyframes ringPulse {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes scan {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-200px); }
+}
+
+@keyframes gridMove {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(20px); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: 2.5rem;
+  }
+
+  .subtitle {
+    font-size: 1.2rem;
+  }
+
+  .urlInput {
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+  }
+
+  .scanButton {
+    padding: 1rem 2rem;
+    font-size: 1rem;
+  }
+}
+
+.urlInput.error {
+  border-color: #ff4444;
+  box-shadow: 0 0 0 2px rgba(255, 68, 68, 0.2);
+}
+
+.errorMessage {
+  color: #ff4444;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+  text-align: left;
+  padding-left: 1.5rem;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+} 

@@ -1,0 +1,24 @@
+@import "tailwindcss";
+@import "tailwindcss";
+
+
+:root {
+  /* Light Theme */
+  --body_background: #ffffff;
+  --text_color: #333333;
+  --card_background: #f8f9fa;
+  --theme_transition: all 0.3s ease;
+}
+
+[data-theme="dark"] {
+  --body_background: #1a1a1a;
+  --text_color: #ffffff;
+  --card_background: #2d2d2d;
+}
+
+/* Add smooth transitions for theme changes */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+

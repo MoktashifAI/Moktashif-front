@@ -1,0 +1,34 @@
+.footerStyle{
+    background-color: var(--body_background);
+    color: var(--text_color);
+    transition: var(--theme_transition);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 5rem;
+    width: 100%;
+}
+
+.copyright{
+    color: var(--copyRight);
+    font-size: 1.05rem;
+    font-weight: 400;
+    margin-left: 20px;
+}
+
+.socialIconsDev{
+    margin-right: 10px;
+}
+.social_icons{
+    color: var(--copyRight);
+    font-size: 1.1rem;
+    margin-left: 15px;
+    margin-right: 15px;
+}
+
+
+.upperBorder{
+    width: 99%;
+    height: 2px;
+    background-color: var(--footer_upper_border) !important;
+}

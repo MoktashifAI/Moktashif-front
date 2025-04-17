@@ -1,0 +1,136 @@
+a{
+    text-decoration: none;
+}
+
+/* .aHover:hover{
+    color: white;
+} */
+
+.navBarStyle{
+    background-color: var(--navbar_background);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: var(--theme_transition);
+    height: 4.0625rem;
+}
+
+.navLinksStyle{
+    color: var(--fifth_color);
+    transition: var(--theme_transition);
+    font-weight: 700;
+    font-size: .875rem;
+    letter-spacing: 0rem;
+}
+
+.navLogo{
+    color: var(--fourth_color);
+    transition: var(--theme_transition);
+    font-size: 25px;
+    opacity: 0.65;
+    margin-top: .2188rem;
+    rotate:-45deg;
+}
+
+.signInContainerStyle{
+    margin-left: .9375rem;
+    background-color: var(--fourth_color);
+    transition: var(--theme_transition);
+    width: 5rem;
+    height: 1.875rem;
+    border-radius: 3.125rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0.7;
+}
+
+.signInStyle{
+    color: var(--SignIn_color);
+    transition: var(--theme_transition);
+    font-weight: 500;
+    font-size: .875rem;
+    letter-spacing: 0rem;
+    font-weight: 700;
+}
+
+.notification{
+    font-size: 1.5rem !important;
+    color: var(--fifth_color) !important;
+    font-weight: 300 !important;
+    margin-top: .3125rem !important;
+    transition: var(--theme_transition);
+    margin-left: 1.25rem
+}
+
+.RightLeftBorder{
+    border-left: .125rem solid var(--fifth_color);
+    border-right: .125rem solid var(--fifth_color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-left: 1.2rem;
+    padding-right: 1.3rem;
+    opacity: 0.65;
+    margin-right: 1.25rem;
+}
+
+/* Mobile menu styles */
+.mobileMenu {
+    background-color: var(--navbar_background);
+    padding: 1rem;
+    border-top: 1px solid var(--border_color);
+}
+
+.mobileMenuItem {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: var(--fifth_color);
+    text-decoration: none;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+}
+
+.mobileMenuItem:hover {
+    background-color: var(--hover_background);
+    color: var(--hover_text);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .navBarStyle {
+        padding: 0.5rem 1rem;
+    }
+
+    .RightLeftBorder {
+        padding-right: 0.5rem;
+        gap: 0.5rem;
+    }
+
+    .signInContainerStyle {
+        margin-left: 0.5rem;
+    }
+
+    .signInStyle {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    .navLogo {
+        display: none;
+        opacity: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .navLogo {
+        font-size: 1.25rem;
+    }
+
+    .RightLeftBorder {
+        border-right: none;
+    }
+}
