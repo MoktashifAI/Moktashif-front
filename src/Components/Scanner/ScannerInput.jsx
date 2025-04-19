@@ -1,17 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import * as Yup from "yup";
 import style from "./ScannerInput.module.css";
-
-const urlSchema = Yup.object().shape({
-  url: Yup.string()
-    .url("Please enter a valid URL")
-    .required("URL is required")
-    .matches(
-      /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/,
-      "Please enter a valid URL format"
-    ),
-});
 
 export default function ScannerInput() {
   const [url, setUrl] = useState("");
@@ -19,36 +8,54 @@ export default function ScannerInput() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const validateUrl = async (value) => {
+  const isValidUrl = (url) => {
     try {
-      await urlSchema.validate({ url: value });
-      setError("");
-      return true;
-    } catch (err) {
-      setError(err.message);
+      // Simple URL validation
+      const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+      return urlPattern.test(url);
+    } catch {
       return false;
     }
   };
 
-  const handleChange = async (e) => {
-    const value = e.target.value;
+  const handleChange = (e) => {
+    const value = e.target.value.trim();
     setUrl(value);
-    await validateUrl(value);
+    if (value && !isValidUrl(value)) {
+      setError("Please enter a valid URL");
+    } else {
+      setError("");
+    }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (!url) return;
+    
+    if (!url) {
+      setError("URL is required");
+      return;
+    }
 
-    const isValid = await validateUrl(url);
-    if (!isValid) return;
+    if (!isValidUrl(url)) {
+      setError("Please enter a valid URL");
+      return;
+    }
 
     setIsLoading(true);
-    // Simulate scanning process
-    setTimeout(() => {
-      setIsLoading(false);
-      navigate("/results", { state: { url } });
-    }, 2000);
+    
+    // Format URL with https:// if not present
+    const formattedUrl = url.startsWith('http') ? url : `https://${url}`;
+    
+    // Navigate to results page
+    navigate("/results", { 
+      state: { 
+        url: formattedUrl,
+        scanData: {
+          timestamp: new Date().toISOString(),
+          status: "completed"
+        }
+      }
+    });
   };
 
   return (
@@ -65,10 +72,10 @@ export default function ScannerInput() {
           <div className={style.inputWrapper}>
             <div className={style.inputContainer}>
               <input
-                type="url"
+                type="text"
                 value={url}
                 onChange={handleChange}
-                placeholder="https://example.com"
+                placeholder="example.com"
                 className={`${style.urlInput} ${error ? style.error : ""}`}
                 required
               />
@@ -83,7 +90,7 @@ export default function ScannerInput() {
           <button
             type="submit"
             className={`${style.scanButton} ${isLoading ? style.loading : ""}`}
-            disabled={isLoading || !!error}
+            disabled={isLoading || !!error || !url}
           >
             {isLoading ? (
               <>

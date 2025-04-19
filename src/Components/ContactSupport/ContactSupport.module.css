@@ -1,0 +1,211 @@
+.contactContainer {
+    min-height: 100vh;
+    background: var(--body_background);
+    color: var(--text_color);
+    padding: 2rem;
+    transition: var(--theme_transition);
+    margin-top: 3.75rem;
+}
+
+.contactHeader {
+    text-align: center;
+    margin-bottom: 3rem;
+    animation: fadeIn 0.1s ease-in-out;
+}
+
+.contactTitle {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #636E97;
+    margin-bottom: 1rem;
+    transition: var(--theme_transition);
+}
+
+.contactSubtitle {
+    font-size: 1.1rem;
+    color: var(--text_color);
+    opacity: 0.8;
+    max-width: 600px;
+    margin: 0 auto;
+    transition: var(--theme_transition);
+}
+
+.contactGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.contactForm {
+    background: var(--card_background);
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: var(--theme_transition);
+    animation: slideInLeft 0.1s ease-in-out;
+}
+
+.formGroup {
+    margin-bottom: 1.5rem;
+}
+
+.formLabel {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text_color);
+    margin-bottom: 0.5rem;
+    transition: var(--theme_transition);
+}
+
+.formInput {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid rgba(99, 110, 151, 0.2);
+    border-radius: 0.5rem;
+    background: var(--body_background);
+    color: var(--text_color);
+    transition: var(--theme_transition);
+}
+
+.formInput:focus {
+    outline: none;
+    border-color: #636E97;
+    box-shadow: 0 0 0 2px rgba(99, 110, 151, 0.2);
+}
+
+.formTextarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid rgba(99, 110, 151, 0.2);
+    border-radius: 0.5rem;
+    background: var(--body_background);
+    color: var(--text_color);
+    min-height: 150px;
+    resize: vertical;
+    transition: var(--theme_transition);
+}
+
+.formTextarea:focus {
+    outline: none;
+    border-color: #636E97;
+    box-shadow: 0 0 0 2px rgba(99, 110, 151, 0.2);
+}
+
+.submitButton {
+    width: 100%;
+    padding: 1rem;
+    background: linear-gradient(45deg, #636E97, #8B95B9);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.submitButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(99, 110, 151, 0.3);
+}
+
+.contactInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    animation: slideInRight 0.1s ease-in-out;
+}
+
+.infoCard {
+    background: var(--card_background);
+    padding: 2rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.infoCard:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+}
+
+.infoTitle {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #636E97;
+    margin-bottom: 1rem;
+    transition: var(--theme_transition);
+}
+
+.infoText {
+    color: var(--text_color);
+    opacity: 0.8;
+    line-height: 1.6;
+    transition: var(--theme_transition);
+}
+
+.infoIcon {
+    font-size: 2rem;
+    color: #636E97;
+    margin-bottom: 1rem;
+    transition: var(--theme_transition);
+}
+
+@media (max-width: 1024px) {
+    .contactGrid {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .contactTitle {
+        font-size: 2rem;
+    }
+
+    .contactSubtitle {
+        font-size: 1rem;
+    }
+
+    .contactForm {
+        padding: 1.5rem;
+    }
+
+    .infoCard {
+        padding: 1.5rem;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}

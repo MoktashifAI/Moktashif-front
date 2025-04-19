@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import style from "./SignIn_SignUp.module.css";
 import { useFormik } from "formik";
 import * as yup from "yup";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { HashLoader } from "react-spinners";
+import { UserContext } from "../../Context/UserContext.jsx";
 
 // Constants
 const PASSWORD_REGEX =
@@ -150,6 +151,7 @@ const SignInForm = ({ formik, error, isLoading }) => (
 );
 
 export default function SignIn_SignUp() {
+  let {setUserToken} = useContext(UserContext);
   const navigate = useNavigate();
   const [registerError, setRegisterError] = useState("");
   const [signInError, setSignInError] = useState("");
@@ -177,6 +179,7 @@ export default function SignIn_SignUp() {
       if (response.data?.success) {
         setIsSignInLoading(false);
         localStorage.setItem("userToken", response.data.token);
+        setUserToken(response.data.token);
         navigate("/home");
       }
     } catch (error) {

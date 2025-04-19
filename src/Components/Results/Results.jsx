@@ -67,9 +67,6 @@ export default function Results() {
 
   return (
     <div className={style.resultsContainer}>
-      
-
-
       <div className={style.mainGrid}>
         <div className={style.chartSection}>
           <div className={style.summarySection}>
@@ -77,7 +74,7 @@ export default function Results() {
           </div>
         </div>
 
-        <div className={style.header}>
+        <div className={`${style.header} `}>
             <div className={style.headerContent}>
                 <h1   >Scan Results</h1>
                 <div className={style.scanInfo}>
@@ -100,7 +97,6 @@ export default function Results() {
                 </div>  
             </div>
         </div>
-       
       </div>
 
 

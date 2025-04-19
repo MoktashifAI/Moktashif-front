@@ -2,16 +2,15 @@ import {
   Disclosure,
   DisclosureButton,
   DisclosurePanel,
-  Menu,
-  MenuButton,
-  MenuItem,
-  MenuItems,
 } from "@headlessui/react";
 import { Bars3Icon, BellIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import style from "./Navbar.module.css";
 import { Link, useLocation } from "react-router-dom";
 import "../../assets/GlobalStyle.css";
 import ThemeMode from "../ThemeMode/ThemeMode";
+import { useContext, useState, useRef, useEffect } from "react";
+import { UserContext } from "../../Context/UserContext.jsx";
+import { useNavigate } from "react-router-dom";
 
 const navigation = [
   { name: "Home", href: "/", current: false },
@@ -24,7 +23,31 @@ function classNames(...classes) {
 }
 
 export default function Navbar() {
+  const { userToken, setUserToken } = useContext(UserContext);
   const location = useLocation();
+  const navigate = useNavigate();
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef(null);
+
+  const logOut = () => {
+    localStorage.setItem('userToken', null);
+    setUserToken(null);
+    navigate('/signin');
+  };
+
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setIsProfileMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <Disclosure as="nav" className={style.navBarStyle}>
@@ -51,23 +74,25 @@ export default function Navbar() {
             <div className="flex shrink-0 items-center">
               <i className={`fa-solid fa-bug ${style.navLogo} `} />
             </div>
-            <div className="hidden sm:ml-6 sm:block">
-              <div className="flex space-x-4">
-                {navigation.map((item) => (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={classNames(
-                      location.pathname === item.href
-                        ? `${style.navLinksStyle} ${style.aHover}`
-                        : style.navLinksStyle
-                    )}
-                  >
-                    {item.name}
-                  </Link>
-                ))}
+            {userToken !== null && (
+              <div className="hidden sm:ml-6 sm:block">
+                <div className="flex space-x-4">
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={classNames(
+                        location.pathname === item.href
+                          ? `${style.navLinksStyle} ${style.aHover}`
+                          : style.navLinksStyle
+                      )}
+                    >
+                      {item.name}
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Right side items */}
@@ -83,9 +108,12 @@ export default function Navbar() {
             </div>
 
             {/* Profile dropdown */}
-            <Menu as="div" className="relative ml-3">
-              <div>
-                <MenuButton className="relative flex rounded-full text-sm focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 focus:outline-hidden">
+            {userToken !== null && (
+              <div className={style.profileMenuContainer} ref={profileMenuRef}>
+                <button
+                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  className="relative flex rounded-full text-sm focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 focus:outline-hidden"
+                >
                   <span className="absolute -inset-1.5" />
                   <span className="sr-only">Open user menu</span>
                   <img
@@ -93,43 +121,39 @@ export default function Navbar() {
                     src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
                     className="size-8 rounded-full"
                   />
-                </MenuButton>
+                </button>
+                {isProfileMenuOpen && (
+                  <div className={style.profileMenu}>
+                    <Link
+                      to="profile"
+                      className={style.profileMenuItem}
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      Your Profile
+                    </Link>
+                    <Link
+                      to=""
+                      className={style.profileMenuItem}
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      Settings
+                    </Link>
+                  </div>
+                )}
               </div>
-              <MenuItems
-                transition
-                className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 ring-1 shadow-lg ring-black/5 transition focus:outline-hidden data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
-              >
-                <MenuItem>
-                  <Link
-                    to={"profile"}
-                    className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:outline-hidden"
-                  >
-                    Your Profile
-                  </Link>
-                </MenuItem>
-                <MenuItem>
-                  <Link
-                    to={""}
-                    className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:outline-hidden"
-                  >
-                    Settings
-                  </Link>
-                </MenuItem>
-                <MenuItem>
-                  <Link
-                    to={""}
-                    className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:outline-hidden"
-                  >
-                    SignOut
-                  </Link>
-                </MenuItem>
-              </MenuItems>
-            </Menu>
-
+            )}
+            
+            {/* signIn button */}
             <div className={style.signInContainerStyle}>
-              <Link className={style.signInStyle} to={"/signin"}>
-                SignIn
-              </Link>
+              {userToken !== null ? (
+                <span onClick={logOut} className={`cursor-pointer ${style.signInStyle}`}>
+                  Logout
+                </span>
+              ) : (
+                <Link className={style.signInStyle} to="/signin">
+                  SignIn
+                </Link>
+              )}
             </div>
           </div>
         </div>

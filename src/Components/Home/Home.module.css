@@ -7,11 +7,12 @@
 }
 
 .homeContainer {
-    min-height: 100vh;
+    min-height: 85vh;
     background: var(--body_background);
     color: var(--text_color);
     overflow-x: hidden;
     transition: var(--theme_transition);
+    margin-bottom: 0rem;
 }
 
 /* Hero Section */
@@ -84,6 +85,13 @@
     margin-bottom: 3rem;
     color: #636E97;
     transition: var(--theme_transition);
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(45deg, #636E97, #8B95B9);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(99, 110, 151, 0.2);
 }
 
 .featuresGrid {
@@ -96,36 +104,45 @@
 }
 
 .featureCard {
-    background: var(--card_background);
+    background-color: var(--feature_cards_color);
     padding: 2rem;
-    border-radius: 10px;
+    border-radius: .625rem;
     text-align: center;
-    transition: all 0.3s ease;
-    border: 1px solid rgba(99, 110, 151, 0.1);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    min-height: 250px;
+    transition: var(--theme_transition);
+    border: .0625rem solid rgba(99, 110, 151, 0.1);
+    box-shadow: 0 .25rem .375rem rgba(0, 0, 0, 0.4);
+    min-height: 15.625rem;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
+    gap: 1.5rem;
 }
 
 .featureCard:hover {
     transform: translateY(-10px);
-    border-color: rgba(99, 110, 151, 0.3);
+    border-color: rgba(99, 110, 151, 0.5);
     box-shadow: 0 10px 20px rgba(99, 110, 151, 0.1);
 }
 
 .featureIcon {
     font-size: 2.5rem;
-    margin-bottom: 1.5rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0;
     color: #636E97;
     transition: var(--theme_transition);
+    background-color: rgba(99, 110, 151, 0.1);
+    border-radius: 50%;
+    padding: 0.5rem;
 }
 
 .featureCard h3 {
     color: #636E97;
-    margin-bottom: 1rem;
+    margin: 0;
     font-size: 1.5rem;
     font-weight: 600;
     transition: var(--theme_transition);
@@ -136,6 +153,7 @@
     opacity: 0.8;
     transition: var(--theme_transition);
     line-height: 1.6;
+    margin: 0;
 }
 
 /* CTA Section */
@@ -145,6 +163,8 @@
     background: var(--body_background);
     position: relative;
     overflow: hidden;
+    margin-top: 0rem;
+    transition: var(--theme_transition)
 }
 
 .ctaSection h2 {

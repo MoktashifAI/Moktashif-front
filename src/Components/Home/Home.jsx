@@ -10,7 +10,6 @@ gsap.registerPlugin(ScrollTrigger);
 export default function Home() {
   const mainRef = useRef(null);
   const titleRef = useRef(null);
-  const scannerRef = useRef(null);
   const featuresRef = useRef(null);
   const [isDarkMode, setIsDarkMode] = useState(
     window.matchMedia("(prefers-color-scheme: dark)").matches
@@ -37,27 +36,34 @@ export default function Home() {
 
     // Initial animation
     gsap.from(titleRef.current, {
-      duration: 1.5,
+      duration: 1.2,
       y: 100,
       opacity: 0,
-      ease: "power4.out",
+      ease: "power3.out",
     });
 
     // Features animation
     const featureCards = gsap.utils.toArray(`.${style.featureCard}`);
 
+    // Initial state - make cards visible but slightly transparent
+    gsap.set(featureCards, {
+      opacity: 0.3,
+      y: 20
+    });
+
+    // Animate cards into view
     featureCards.forEach((card, index) => {
-      gsap.from(card, {
-        duration: 0.8,
-        y: 50,
-        opacity: 0,
-        delay: index * 0.2,
+      gsap.to(card, {
+        duration: 0.5,
+        opacity: 1,
+        y: 0,
+        delay: index * 0.1, // Reduced delay between cards
+        ease: "power2.out",
         scrollTrigger: {
           trigger: card,
-          start: "top 80%",
-          toggleActions: "play none none reverse",
-        },
-        ease: "power2.out",
+          start: "top 90%", // Trigger animation earlier
+          toggleActions: "play none none none", // Only play once
+        }
       });
     });
 
@@ -68,6 +74,7 @@ export default function Home() {
     };
   }, [isDarkMode]);
 
+  
   return (
     <div className={style.homeContainer} ref={mainRef}>
       {/* Hero Section */}
@@ -88,7 +95,7 @@ export default function Home() {
       </section>
 
 
-      {/* CTA Section */}
+      {/* navigation to scanner Section */}
       <section className={style.ctaSection}>
         <h2>Ready to Secure Your Website?</h2>
         <Link to="/scanner" className={style.ctaButton}>
@@ -121,8 +128,9 @@ export default function Home() {
         </Link>
       </section>
 
+
       {/* Features Section */}
-      <section className={style.featuresSection}>
+      <section className={`mb-20 ${style.featuresSection}`}>
         <h2 className={style.sectionTitle}>Key Features</h2>
         <div className={style.featuresGrid} ref={featuresRef}>
           <div className={style.featureCard}>
@@ -147,7 +155,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
 
     </div>
   );

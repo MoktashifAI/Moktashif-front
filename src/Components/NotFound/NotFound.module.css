@@ -4,7 +4,7 @@
 }
 
 .NotFoundBackGround {
-    height: 85vh;
+    height: 95vh;
     background-color: var(--body_background);
     display: flex;
     justify-content: center;
