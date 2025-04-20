@@ -10,20 +10,20 @@ import ContactSupport from "./Components/ContactSupport/ContactSupport";
 import ForgetPassword from "./Components/ForgetPassword/ForgetPassword";
 import ScannerInput from "./Components/Scanner/ScannerInput";
 import UserContextProvider from "./Context/UserContext";
-
+import ProtectedRoute from "./Components/ProtectedRoute/ProtectedRoute";
 
 let routers = createBrowserRouter([
   {
     path: '', element: <Layout />, children: [
-      { index: true, element: <Home /> },
-      { path: 'home', element: <Home /> },
-      { path: 'scanner', element: <ScannerInput /> },
-      { path: 'forgetpassword', element: <ForgetPassword /> },
-      { path: 'results', element: <Results /> },
+      { index: true, element:<ProtectedRoute><Home /></ProtectedRoute> },
+      { path: 'home', element: <ProtectedRoute><Home /></ProtectedRoute> },
+      { path: 'scanner', element: <ProtectedRoute><ScannerInput /></ProtectedRoute> },
+      { path: 'forgetpassword', element:<ForgetPassword />},
+      { path: 'results', element:<ProtectedRoute><Results /></ProtectedRoute>  },
       { path: 'signin', element: <SignIn_SignUp /> },
-      { path: 'profile', element: <UserProfile /> },
+      { path: 'profile', element: <ProtectedRoute><UserProfile /></ProtectedRoute> },
       { path: '*', element: <NotFound /> },
-      { path: 'contactsupport', element: < ContactSupport /> }
+      { path: 'contactsupport', element:< ContactSupport /> }
     ]
   }
 ]);

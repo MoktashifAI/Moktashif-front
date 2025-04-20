@@ -1,7 +1,7 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import style from './ContactSupport.module.css'
-import { FaEnvelope, FaPhone, FaMapMarkerAlt } from 'react-icons/fa'
+import { FaEnvelope, FaPhone, FaMapMarkerAlt, FaPaperPlane, FaHeadset } from 'react-icons/fa'
 
 const ContactSupport = () => {
     const [formData, setFormData] = useState({
@@ -10,6 +10,12 @@ const ContactSupport = () => {
         subject: '',
         message: ''
     })
+
+    const [isVisible, setIsVisible] = useState(false)
+
+    useEffect(() => {
+        setIsVisible(true)
+    }, [])
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -26,19 +32,25 @@ const ContactSupport = () => {
     }
 
     return (
-        <div className={style.contactContainer}>
-            <div className={style.contactHeader}>
-                <h1 className={style.contactTitle}>Contact Support</h1>
-                <p className={style.contactSubtitle}>
-                    Have questions or need assistance? We're here to help! Fill out the form below and we'll get back to you as soon as possible.
-                </p>
+        <div className={`${style.contactContainer}`}>
+            <div className={style.heroSection}>
+                <div className={`${style.heroContent} ${isVisible ? style.fadeIn : ''}`}>
+                    <h1 className={style.heroTitle}>Get in Touch</h1>
+                    <p className={style.heroSubtitle}>
+                        We're here to help and answer any questions you might have. 
+                        We look forward to hearing from you!
+                    </p>
+                </div>
             </div>
 
-            <div className={style.contactGrid}>
-                <div className={style.contactForm}>
+            <div className={` ${style.contactGrid}`}>
+                <div className={`mb-10 ${style.contactForm} ${isVisible ? style.slideInLeft : ''}`}>
+                    <div className={style.formHeader}>
+                        <FaHeadset className={style.formIcon} />
+                        <h2>Send us a Message</h2>
+                    </div>
                     <form onSubmit={handleSubmit}>
                         <div className={style.formGroup}>
-                            <label className={style.formLabel} htmlFor="name">Name</label>
                             <input
                                 type="text"
                                 id="name"
@@ -46,12 +58,12 @@ const ContactSupport = () => {
                                 value={formData.name}
                                 onChange={handleChange}
                                 className={style.formInput}
+                                placeholder="Your Name"
                                 required
                             />
                         </div>
 
                         <div className={style.formGroup}>
-                            <label className={style.formLabel} htmlFor="email">Email</label>
                             <input
                                 type="email"
                                 id="email"
@@ -59,12 +71,12 @@ const ContactSupport = () => {
                                 value={formData.email}
                                 onChange={handleChange}
                                 className={style.formInput}
+                                placeholder="Your Email"
                                 required
                             />
                         </div>
 
                         <div className={style.formGroup}>
-                            <label className={style.formLabel} htmlFor="subject">Subject</label>
                             <input
                                 type="text"
                                 id="subject"
@@ -72,52 +84,69 @@ const ContactSupport = () => {
                                 value={formData.subject}
                                 onChange={handleChange}
                                 className={style.formInput}
+                                placeholder="Subject"
                                 required
                             />
                         </div>
 
                         <div className={style.formGroup}>
-                            <label className={style.formLabel} htmlFor="message">Message</label>
                             <textarea
                                 id="message"
                                 name="message"
                                 value={formData.message}
                                 onChange={handleChange}
                                 className={style.formTextarea}
+                                placeholder="Your Message"
                                 required
                             />
                         </div>
 
-                        <button type="submit" className={style.submitButton}>
+                        <button 
+                            type="submit" 
+                            className={style.submitButton}
+                        >
+                            <FaPaperPlane className={style.buttonIcon} />
                             Send Message
                         </button>
                     </form>
                 </div>
 
-                <div className={style.contactInfo}>
-                    <div className={style.infoCard}>
-                        <FaEnvelope className={style.infoIcon} />
+                <div className={`mb-10 ${style.contactInfo}`}>
+                    <div className={`${style.infoCard} ${isVisible ? style.slideInRight : ''}`}>
+                        <div className={style.infoIconWrapper}>
+                            <FaEnvelope className={style.infoIcon} />
+                        </div>
                         <h3 className={style.infoTitle}>Email Us</h3>
                         <p className={style.infoText}>
-                            support@moktashif.com<br />
+                            support@moktashif.com
+                        </p>
+                        <p className={style.infoSubtext}>
                             We typically respond within 24 hours
                         </p>
                     </div>
 
-                    <div className={style.infoCard}>
-                        <FaPhone className={style.infoIcon} />
+                    <div className={`${style.infoCard} ${isVisible ? style.slideInRight : ''}`} style={{ animationDelay: '0.2s' }}>
+                        <div className={style.infoIconWrapper}>
+                            <FaPhone className={style.infoIcon} />
+                        </div>
                         <h3 className={style.infoTitle}>Call Us</h3>
                         <p className={style.infoText}>
-                            +1 (555) 123-4567<br />
+                            +1 (555) 123-4567
+                        </p>
+                        <p className={style.infoSubtext}>
                             Monday - Friday, 9:00 AM - 5:00 PM EST
                         </p>
                     </div>
 
-                    <div className={style.infoCard}>
-                        <FaMapMarkerAlt className={style.infoIcon} />
+                    <div className={`${style.infoCard} ${isVisible ? style.slideInRight : ''}`} style={{ animationDelay: '0.4s' }}>
+                        <div className={style.infoIconWrapper}>
+                            <FaMapMarkerAlt className={style.infoIcon} />
+                        </div>
                         <h3 className={style.infoTitle}>Visit Us</h3>
                         <p className={style.infoText}>
-                            123 Tech Street<br />
+                            123 Tech Street
+                        </p>
+                        <p className={style.infoSubtext}>
                             Innovation City, IC 12345<br />
                             United States
                         </p>

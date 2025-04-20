@@ -1,8 +1,3 @@
-import {
-  Disclosure,
-  DisclosureButton,
-  DisclosurePanel,
-} from "@headlessui/react";
 import { Bars3Icon, BellIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import style from "./Navbar.module.css";
 import { Link, useLocation } from "react-router-dom";
@@ -30,7 +25,7 @@ export default function Navbar() {
   const profileMenuRef = useRef(null);
 
   const logOut = () => {
-    localStorage.setItem('userToken', null);
+    localStorage.removeItem('userToken');
     setUserToken(null);
     navigate('/signin');
   };
@@ -50,12 +45,12 @@ export default function Navbar() {
   }, []);
 
   return (
-    <Disclosure as="nav" className={style.navBarStyle}>
+    <section as="nav" className={style.navBarStyle}>
       <div className="mx-10 px-2 sm:px-6 lg:px-8">
         <div className="relative flex h-16 items-center justify-between">
           {/* Mobile menu button */}
           <div className="absolute inset-y-0 left-0 flex items-center sm:hidden">
-            <DisclosureButton className="group relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:ring-2 focus:ring-white focus:outline-hidden focus:ring-inset">
+            <button className="group relative inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:ring-2 focus:ring-white focus:outline-hidden focus:ring-inset">
               <span className="absolute -inset-0.5" />
               <span className="sr-only">Open main menu</span>
               <Bars3Icon
@@ -66,7 +61,7 @@ export default function Navbar() {
                 aria-hidden="true"
                 className="hidden size-6 group-data-open:block"
               />
-            </DisclosureButton>
+            </button>
           </div>
 
           {/* Logo and Desktop Navigation */}
@@ -160,10 +155,10 @@ export default function Navbar() {
       </div>
 
       {/* Mobile menu */}
-      <DisclosurePanel className="sm:hidden">
+      <section className="sm:hidden">
         <div className="space-y-1 px-2 pt-2 pb-3">
           {navigation.map((item) => (
-            <DisclosureButton
+            <button
               key={item.name}
               as={Link}
               to={item.href}
@@ -174,10 +169,10 @@ export default function Navbar() {
               )}
             >
               {item.name}
-            </DisclosureButton>
+            </button>
           ))}
         </div>
-      </DisclosurePanel>
-    </Disclosure>
+      </section>
+    </section>
   );
 }
