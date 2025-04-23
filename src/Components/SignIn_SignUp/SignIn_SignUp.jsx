@@ -7,10 +7,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { HashLoader } from "react-spinners";
 import { UserContext } from "../../Context/UserContext.jsx";
 
+
 // Constants
 const PASSWORD_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+{};:,<.>/?\\|\[\]]).{8,}$/;
-const API_BASE_URL = 'https://localhost:3000/';
 
 // Validation Schemas
 const registerValidationSchema = yup.object({
@@ -27,6 +27,10 @@ const registerValidationSchema = yup.object({
       "Password must contain uppercase, lowercase, number and special character"
     )
     .required("Password is required"),
+  acceptTerms: yup
+    .boolean()
+    .oneOf([true], "You must accept the Terms of Service and Privacy Policy")
+    .required("You must accept the Terms of Service and Privacy Policy"),
 });
 
 const signInValidationSchema = yup.object({
@@ -88,7 +92,6 @@ const SignUpForm = ({ formik, error, isLoading }) => (
         name="userName"
         type="text"
         placeholder="Name"
-
       />
       <FormInput
         formik={formik}
@@ -102,10 +105,31 @@ const SignUpForm = ({ formik, error, isLoading }) => (
         type="password"
         placeholder="Password"
       />
+      <div className={style["checkbox-container"]}>
+        <label className={`${style.checkbox_label}`}>
+          <input
+            type="checkbox"
+            name="acceptTerms"
+            onChange={formik.handleChange}
+            onBlur={formik.handleBlur}
+            checked={formik.values.acceptTerms}
+            
+          />
+          <span>
+            I agree to the{" "}
+            <Link to="/terms">Terms of Service</Link>
+            {" "}and{" "}
+            <Link to="/privacy">Privacy Policy</Link>
+          </span>
+        </label>
+      </div>
+      {formik.errors.acceptTerms && formik.touched.acceptTerms && (
+        <p className="redAlert mt-0 mb-0">{formik.errors.acceptTerms}</p>
+      )}
       {error && <p className="redAlert mt-0 mb-0">{error}</p>}
       {isLoading ? (
         <button type="button">
-          <HashLoader color="white" size={20} />
+          <HashLoader color="white" size={18} />
         </button>
       ) : (
         <button disabled={!(formik.isValid && formik.dirty)} type="submit">
@@ -139,7 +163,7 @@ const SignInForm = ({ formik, error, isLoading }) => (
       <Link to="/forgetpassword">Forget Your Password?</Link>
       {isLoading ? (
         <button type="button">
-          <HashLoader color="white" size={20} />
+          <HashLoader color="white" size={18} />
         </button>
       ) : (
         <button disabled={!(formik.isValid && formik.dirty)} type="submit">
@@ -193,6 +217,7 @@ export default function SignIn_SignUp() {
       userName: "",
       email: "",
       password: "",
+      acceptTerms: false,
     },
     validationSchema: registerValidationSchema,
     onSubmit: handleRegister,
@@ -217,7 +242,7 @@ export default function SignIn_SignUp() {
 
   return (
     <section className={style.signInBackGround}>
-      <div className={`${style.container}  mb-10`} id="container">
+      <div className={`${style.container} mb-10`} id="container">
         <SignUpForm
           formik={registerFormik}
           error={registerError}

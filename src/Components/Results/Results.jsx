@@ -1,52 +1,120 @@
 import axios from "axios";
-import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import React, { useContext, useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import style from "./Results.module.css";
 import VulnerabilityChart from "./VulnerabilityChart";
+import { GlobalContext } from "../../Context/GlobalContext";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function Results() {
+  const { vulnsBackendData, setVulnsBackendData, scanDate } = useContext(GlobalContext);
   const [vulns, setVulns] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [expandedItems, setExpandedItems] = useState({});
   const [stats, setStats] = useState({
-    critical: 3,
-    high: 2,
-    medium: 4,
-    low: 2,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
   });
-  const location = useLocation();
-  const scannedUrl = location.state?.url || "Unknown URL";
-
-  const getVulns = async () => {
-    setLoading(true);
-    try {
-      const { data: res } = await axios.get(
-        `http://localhost:3000/vulns/getVuln`
-      );
-      setVulns(res.data);
-      // Calculate statistics based on the vulnerabilities
-      const newStats = res.data.reduce(
-        (acc, vuln) => {
-          const riskLevel = getRiskValue(vuln.riskLevel).toLowerCase();
-          acc[riskLevel] = (acc[riskLevel] || 0) + 1;
-          return acc;
-        },
-        {
-          critical: 0,
-          high: 0,
-          medium: 0,
-          low: 0,
-        }
-      );
-      setStats(newStats);
-    } catch (error) {
-      console.error("Error fetching vulnerabilities:", error);
-    }
-    setLoading(false);
-  };
+  const [modalContent, setModalContent] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    getVulns();
-  }, []);
+    if (vulnsBackendData) {
+      updateVulnerabilities(vulnsBackendData);
+    }
+  }, [vulnsBackendData]);
+
+  const updateVulnerabilities = (data) => {
+    setVulns(data);
+    setLoading(false);
+    
+    // Calculate statistics based on the vulnerabilities
+    const newStats = data.reduce(
+      (acc, vuln) => {
+        const severity = vuln.severity.toLowerCase();
+        acc[severity] = (acc[severity] || 0) + 1;
+        return acc;
+      },
+      {
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+      }
+    );
+    setStats(newStats);
+  };
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get('http://localhost:3000/integration/IntegrationApi');
+      if (response.data.success === true) {
+        setVulnsBackendData(response.data?.data.vulnerabilities);
+        updateVulnerabilities(response.data?.data.vulnerabilities);
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      setLoading(false);
+    }
+  };
+
+  const generatePDFReport = () => {
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(20);
+    doc.text("Vulnerability Scan Report", 14, 15);
+    
+    // Add scan date
+    doc.setFontSize(12);
+    doc.text(`Scan Date: ${new Date().toLocaleString()}`, 14, 25);
+    
+    // Add summary section
+    doc.setFontSize(16);
+    doc.text("Summary", 14, 40);
+    
+    // Add vulnerability counts
+    doc.setFontSize(12);
+    doc.text(`Critical: ${stats.critical}`, 14, 50);
+    doc.text(`High: ${stats.high}`, 14, 60);
+    doc.text(`Medium: ${stats.medium}`, 14, 70);
+    doc.text(`Low: ${stats.low}`, 14, 80);
+    
+    // Add findings table
+    doc.setFontSize(16);
+    doc.text("Detailed Findings", 14, 100);
+    
+    // Prepare table data
+    const tableData = vulns.map(vuln => [
+      vuln.category,
+      vuln.severity,
+      vuln.description || "No description available",
+      vuln.remediation || "No remediation available"
+    ]);
+    
+    // Add table using autoTable
+    autoTable(doc, {
+      startY: 110,
+      head: [['Finding', 'Risk Level', 'Description', 'Remediation']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [99, 110, 151] },
+      styles: { fontSize: 10 },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 20 },
+        2: { cellWidth: 70 },
+        3: { cellWidth: 70 }
+      }
+    });
+    
+    // Save the PDF
+    doc.save('vulnerability-scan-report.pdf');
+  };
 
   const getRiskLevelColor = (level) => {
     const levels = {
@@ -58,11 +126,78 @@ export default function Results() {
     return levels[level.toLowerCase()] || "#636E97";
   };
 
-  const getRiskValue = (value) => {
-    if (value >= 9) return "Critical";
-    if (value >= 7) return "High";
-    if (value >= 4) return "Medium";
-    return "Low";
+  const toggleExpand = (id, type) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [`${id}-${type}`]: !prev[`${id}-${type}`]
+    }));
+  };
+
+  const truncateText = (text, maxLength = 100) => {
+    if (!text) return "No information available";
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
+
+  const renderExpandableContent = (text, id, type) => {
+    const isExpanded = expandedItems[`${id}-${type}`];
+    const truncatedText = truncateText(text);
+    const shouldShowButton = text && text.length > 100;
+    
+    return (
+      <div className={style.expandableContent}>
+        <div className={`${style.content} ${isExpanded ? style.expanded : ''}`}>
+          {isExpanded ? text : truncatedText}
+        </div>
+        {shouldShowButton && (
+          <button 
+            className={style.expandButton}
+            onClick={() => toggleExpand(id, type)}
+          >
+            {isExpanded ? (
+              <>
+                <i className="fas fa-chevron-up"></i> Show Less
+              </>
+            ) : (
+              <>
+                <i className="fas fa-chevron-down"></i> Read More
+              </>
+            )}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const handleCellClick = (content, title) => {
+    if (!content) return;
+    setModalContent({ content, title });
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setModalContent(null);
+  };
+
+  const renderModal = () => {
+    if (!showModal || !modalContent) return null;
+
+    return (
+      <div className={style.modalOverlay} onClick={closeModal}>
+        <div className={style.modalContent} onClick={e => e.stopPropagation()}>
+          <div className={style.modalHeader}>
+            <h3>{modalContent.title}</h3>
+            <button className={style.closeButton} onClick={closeModal}>
+              <i className="fas fa-times"></i>
+            </button>
+          </div>
+          <div className={style.modalBody}>
+            {modalContent.content}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -75,105 +210,123 @@ export default function Results() {
         </div>
 
         <div className={`${style.header} `}>
-            <div className={style.headerContent}>
-                <h1   >Scan Results</h1>
-                <div className={style.scanInfo}>
-                    <div>
-                    <span>Content Type:</span>
-                    <span>text/html;charset=UTF-8</span>
-                    </div>
-                    <div>
-                    <span>Last Analysis Date:</span>
-                    <span>{new Date().toLocaleString()}</span>
-                    </div>
-                </div>
-                <div className={style.actions}>
-                    <button onClick={getVulns} className={style.refreshButton}>
-                    <i className="fas fa-sync-alt"></i> Refresh
-                    </button>
-                    <button className={style.reportButton}>
-                    <i className="fas fa-file-export"></i> Report
-                    </button>
-                </div>  
+          <div className={style.headerContent}>
+            <h1>Scan Results</h1>
+            <div className={style.scanInfo}>
+              <div>
+                <span>Content Type:</span>
+                <span>text/html;charset=UTF-8</span>
+              </div>
+              <div>
+                <span>Last Analysis Date:</span>
+                <span>{scanDate}</span>
+              </div>
             </div>
+            <div className={style.actions}>
+              <button 
+                className={style.refreshButton}
+                onClick={handleRefresh}
+                disabled={loading}
+              >
+                <i className="fas fa-sync-alt"></i> Refresh
+              </button>
+              <button 
+                className={style.reportButton}
+                onClick={generatePDFReport}
+                disabled={loading || vulns.length === 0}
+              >
+                <i className="fas fa-file-export"></i> Report
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
+      <div className={style.contentSection}>
+        <div className={style.findingsSection}>
+          <div className={style.findingsHeader}>
+            <h2>Findings</h2>
+            <div className={style.findingsActions}>
+              <button className={style.actionButton}>
+                <i className="fas fa-trash"></i> Delete
+              </button>
+              <button className={style.actionButton}>
+                <i className="fas fa-filter"></i> Filters
+              </button>
+            </div>
+          </div>
 
-        <div className={style.contentSection}>
-            <div className={style.findingsSection}>
-            <div className={style.findingsHeader}>
-                <h2>Findings</h2>
-                <div className={style.findingsActions}>
-                <button className={style.actionButton}>
-                    <i className="fas fa-trash"></i> Delete
-                </button>
-                <button className={style.actionButton}>
-                    <i className="fas fa-filter"></i> Filters
-                </button>
-                <button className={style.actionButton}>
-                    <i className="fas fa-file-export"></i> Export
-                </button>
-                </div>
-            </div>
-
-            <div className={style.findingsTable}>
-                <table>
-                <thead>
-                    <tr>
-                    <th>Finding</th>
-                    <th>Risk Level</th>
-                    <th>Description</th>
-                    <th>Remediation</th>
-                    <th>More Info</th>
+          <div className={style.findingsTable}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Finding</th>
+                  <th>Risk Level</th>
+                  <th>Description</th>
+                  <th>Remediation</th>
+                  <th>More Info</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className={style.loading}>
+                      <span className={style.spinner}></span>
+                      Loading results...
+                    </td>
+                  </tr>
+                ) : vulns.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className={style.loading}>
+                      No vulnerabilities found
+                    </td>
+                  </tr>
+                ) : (
+                  vulns.map((vuln) => (
+                    <tr key={vuln._id}>
+                      <td>{vuln.category}</td>
+                      <td>
+                        <span
+                          className={style.riskBadge}
+                          style={{
+                            backgroundColor: getRiskLevelColor(vuln.severity),
+                          }}
+                        >
+                          {vuln.severity}
+                        </span>
+                      </td>
+                      <td 
+                        className={style.descriptionCell}
+                        onClick={() => handleCellClick(vuln.description, 'Description')}
+                        title={vuln.description || "No description available"}
+                      >
+                        {vuln.description || "No description available"}
+                      </td>
+                      <td 
+                        className={style.remediationCell}
+                        onClick={() => handleCellClick(vuln.remediation, 'Remediation')}
+                        title={vuln.remediation || "No remediation available"}
+                      >
+                        {vuln.remediation || "No remediation available"}
+                      </td>
+                      <td>
+                        <Link
+                          target="_blank"
+                          to={vuln.learn_more_url}
+                          className={style.learnMoreButton}
+                        >
+                          {vuln.learn_more_url ? "Learn More" : "N/A"}
+                        </Link>
+                      </td>
                     </tr>
-                </thead>
-                <tbody>
-                    {loading ? (
-                    <tr>
-                        <td colSpan="5" className={style.loading}>
-                        <span className={style.spinner}></span>
-                        Loading results...
-                        </td>
-                    </tr>
-                    ) : (
-                    vulns.map((vuln) => (
-                        <tr key={vuln._id}>
-                        <td>{vuln.vulnType}</td>
-                        <td>
-                            <span
-                            className={style.riskBadge}
-                            style={{
-                                backgroundColor: getRiskLevelColor(
-                                getRiskValue(vuln.riskLevel)
-                                ),
-                            }}
-                            >
-                            {vuln.riskLevel}
-                            </span>
-                        </td>
-                        <td>
-                            {vuln.description || "No description available"}
-                        </td>
-                        <td>
-                            {vuln.remediation || "No remediation available"}
-                        </td>
-                        <td>
-                            <button className={style.learnMoreButton}>
-                            Learn More
-                            </button>
-                        </td>
-                        </tr>
-                    ))
-                    )}
-                </tbody>
-                </table>
-            </div>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-
-
-
+      </div>
+      {renderModal()}
     </div>
   );
 }

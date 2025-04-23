@@ -7,6 +7,7 @@
   padding: 2rem;
   position: relative;
   overflow: hidden;
+  transition: var(--theme_transition);
 }
 
 .scannerContent {
@@ -23,6 +24,7 @@
   margin-bottom: 1.5rem;
   line-height: 1.2;
   background: linear-gradient(45deg, #636E97, #8B95B9);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   text-shadow: 0 0 20px rgba(99, 110, 151, 0.3);
@@ -65,9 +67,9 @@
   font-size: 1.2rem;
   border: 2px solid rgba(99, 110, 151, 0.2);
   border-radius: 50px;
-  background: var(--card_background);
+  background: var(--feature_cards_color);
   color: var(--text_color);
-  transition: all 0.3s ease;
+  transition: var(--theme_transition);
   position: relative;
   z-index: 2;
 }
@@ -172,6 +174,7 @@
   height: 200px;
   overflow: hidden;
   opacity: 0.3;
+  z-index: -10000;
 }
 
 .scannerBeam {

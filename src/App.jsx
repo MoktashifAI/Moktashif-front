@@ -11,28 +11,35 @@ import ForgetPassword from "./Components/ForgetPassword/ForgetPassword";
 import ScannerInput from "./Components/Scanner/ScannerInput";
 import UserContextProvider from "./Context/UserContext";
 import ProtectedRoute from "./Components/ProtectedRoute/ProtectedRoute";
+import TermsOfService from "./Pages/TermsOfService";
+import PrivacyPolicy from "./Pages/PrivacyPolicy";
+import GlobalContextProvider from "./Context/GlobalContext";
 
 let routers = createBrowserRouter([
   {
     path: '', element: <Layout />, children: [
-      { index: true, element:<ProtectedRoute><Home /></ProtectedRoute> },
-      { path: 'home', element: <ProtectedRoute><Home /></ProtectedRoute> },
+      { index: true, element: <Home /> },
+      { path: 'home', element: <Home /> },
       { path: 'scanner', element: <ProtectedRoute><ScannerInput /></ProtectedRoute> },
-      { path: 'forgetpassword', element:<ForgetPassword />},
-      { path: 'results', element:<ProtectedRoute><Results /></ProtectedRoute>  },
+      { path: 'forgetpassword', element: <ForgetPassword /> },
+      { path: 'results', element: <Results /> },
       { path: 'signin', element: <SignIn_SignUp /> },
       { path: 'profile', element: <ProtectedRoute><UserProfile /></ProtectedRoute> },
       { path: '*', element: <NotFound /> },
-      { path: 'contactsupport', element:< ContactSupport /> }
+      { path: 'contactsupport', element: < ContactSupport /> },
+      { path: 'terms', element: <TermsOfService /> },
+      { path: 'privacy', element: <PrivacyPolicy /> }
     ]
   }
 ]);
 
 function App() {
-  return <UserContextProvider>
-    <RouterProvider router={routers}></RouterProvider>
-  </UserContextProvider>
 
+  return <GlobalContextProvider>
+    <UserContextProvider>
+      <RouterProvider router={routers}></RouterProvider>
+    </UserContextProvider>
+  </GlobalContextProvider>
 }
 
 export default App

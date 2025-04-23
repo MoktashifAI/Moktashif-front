@@ -1,8 +1,10 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import style from "./ScannerInput.module.css";
-
+import axios from "axios";
+import { GlobalContext } from "../../Context/GlobalContext";
 export default function ScannerInput() {
+  const {setVulnsBackendData,setscanDate} = useContext(GlobalContext);
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -10,8 +12,8 @@ export default function ScannerInput() {
 
   const isValidUrl = (url) => {
     try {
-      // Simple URL validation
-      const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
+      // URL validation
+      const urlPattern = /^(https?:\/\/)(?:[\w-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[\w\-\.~!$&'()*+,;=:@%]*)*(?:\?[\w\-\.~!$&'()*+,;=:@%/?]*)?(?:#[\w\-\.~!$&'()*+,;=:@%/?]*)?$/;
       return urlPattern.test(url);
     } catch {
       return false;
@@ -28,8 +30,7 @@ export default function ScannerInput() {
     }
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e) => {
     
     if (!url) {
       setError("URL is required");
@@ -43,19 +44,22 @@ export default function ScannerInput() {
 
     setIsLoading(true);
     
-    // Format URL with https:// if not present
-    const formattedUrl = url.startsWith('http') ? url : `https://${url}`;
-    
-    // Navigate to results page
-    navigate("/results", { 
-      state: { 
-        url: formattedUrl,
-        scanData: {
-          timestamp: new Date().toISOString(),
-          status: "completed"
-        }
+    try {
+      // Send URL to backend
+      const response = await axios.post('http://localhost:3000/integration/IntegrationApi', {TargetUrl:url});
+      if (response.data.success === true) {
+        setVulnsBackendData(response.data?.data.vulnerabilities);
+        setscanDate(response.data?.data.createdAt)        
+        // Navigate to results page with scan data
+        navigate("/results");
+      } else {
+        setError(response.data.message || "Scan failed. Please try again.");
+        setIsLoading(false);
       }
-    });
+    } catch (error) {
+      setError(error.response?.data?.message || "An error occurred. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -75,7 +79,7 @@ export default function ScannerInput() {
                 type="text"
                 value={url}
                 onChange={handleChange}
-                placeholder="example.com"
+                placeholder="https://example.com"
                 className={`${style.urlInput} ${error ? style.error : ""}`}
                 required
               />
@@ -89,8 +93,9 @@ export default function ScannerInput() {
 
           <button
             type="submit"
-            className={`${style.scanButton} ${isLoading ? style.loading : ""}`}
-            disabled={isLoading || !!error || !url}
+            className={`cursor-pointer ${style.scanButton} ${isLoading ? style.loading : ""}`}
+            disabled={isLoading}
+            onClick={()=>handleSubmit()}
           >
             {isLoading ? (
               <>
@@ -109,7 +114,7 @@ export default function ScannerInput() {
         <div className={style.scannerVisual}>
           <div className={style.scannerBeam}></div>
           <div className={style.scannerGrid}></div>
-        </div>
+        </div> 
       </div>
     </div>
   );

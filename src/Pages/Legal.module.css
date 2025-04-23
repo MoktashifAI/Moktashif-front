@@ -1,0 +1,108 @@
+.legalContainer {
+    min-height: 100vh;
+    padding: 2rem;
+    background-color: var(--body_background);
+    transition: var(--theme_transition);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.legalContent {
+    max-width: 1000px;
+    width: 100%;
+    margin: 2rem;
+    background-color: var(--surface_background);
+    padding: 3rem;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.legalContent h1 {
+    font-size: 3rem;
+    margin-bottom: 3rem;
+    color: var(--form_color);
+    text-align: center;
+    position: relative;
+    padding-bottom: 1rem;
+}
+
+.legalContent h1::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 4px;
+    background: linear-gradient(to right, var(--form_color), var(--form_color_light));
+    border-radius: 2px;
+}
+
+.section {
+    margin-bottom: 3rem;
+    padding: 2rem;
+    background-color: var(--surface_background);
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease;
+}
+
+.section:hover {
+    transform: translateY(-5px);
+}
+
+.section h2 {
+    font-size: 1.8rem;
+    color: var(--form_color);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.section h2::before {
+    content: '';
+    display: block;
+    width: 30px;
+    height: 3px;
+    background: linear-gradient(to right, var(--form_color), var(--form_color_light));
+    border-radius: 2px;
+}
+
+.section p {
+    line-height: 1.8;
+    color: var(--text_color);
+    font-size: 1.1rem;
+}
+
+
+
+@media (max-width: 768px) {
+    .legalContainer {
+        padding: 1rem;
+    }
+
+    .legalContent {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+
+    .legalContent h1 {
+        font-size: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .section {
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .section h2 {
+        font-size: 1.5rem;
+    }
+
+    .section p {
+        font-size: 1rem;
+    }
+}

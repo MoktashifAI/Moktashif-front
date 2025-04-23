@@ -8,9 +8,7 @@ import { UserContext } from "../../Context/UserContext.jsx";
 import { useNavigate } from "react-router-dom";
 
 const navigation = [
-  { name: "Home", href: "/", current: false },
-  { name: "Scan", href: "/scanner", current: false },
-  { name: "Results", href: "/results", current: false },
+  { name: "Home", href: "/", current: false }
 ];
 
 function classNames(...classes) {
@@ -27,7 +25,7 @@ export default function Navbar() {
   const logOut = () => {
     localStorage.removeItem('userToken');
     setUserToken(null);
-    navigate('/signin');
+    navigate('/home');
   };
 
   // Close profile menu when clicking outside
@@ -69,7 +67,6 @@ export default function Navbar() {
             <div className="flex shrink-0 items-center">
               <i className={`fa-solid fa-bug ${style.navLogo} `} />
             </div>
-            {userToken !== null && (
               <div className="hidden sm:ml-6 sm:block">
                 <div className="flex space-x-4">
                   {navigation.map((item) => (
@@ -87,7 +84,6 @@ export default function Navbar() {
                   ))}
                 </div>
               </div>
-            )}
           </div>
 
           {/* Right side items */}
@@ -103,7 +99,6 @@ export default function Navbar() {
             </div>
 
             {/* Profile dropdown */}
-            {userToken !== null && (
               <div className={style.profileMenuContainer} ref={profileMenuRef}>
                 <button
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
@@ -136,7 +131,6 @@ export default function Navbar() {
                   </div>
                 )}
               </div>
-            )}
             
             {/* signIn button */}
             <div className={style.signInContainerStyle}>

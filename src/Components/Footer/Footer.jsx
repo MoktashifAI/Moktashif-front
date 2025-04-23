@@ -2,7 +2,7 @@ import React from 'react'
 import style from './Footer.module.css';
 export default function Footer() {
     return (
-        <footer className={style.footerContainer}>
+        <footer className={`w-100 ${style.footerContainer}`}>
             <div className={style.upperBorder}></div>
             <div className={style.footerStyle}>
                 <div className={style.copyright}>Copyright © 2022 BRIX | All Rights Reserved</div>
