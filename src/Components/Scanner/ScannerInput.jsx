@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import style from "./ScannerInput.module.css";
 import axios from "axios";
 import { GlobalContext } from "../../Context/GlobalContext";
+import { Helmet } from "react-helmet";
 export default function ScannerInput() {
-  const {setVulnsBackendData,setscanDate} = useContext(GlobalContext);
+  const {setVulnsBackendData,setscanDate , headers} = useContext(GlobalContext);
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -46,23 +47,30 @@ export default function ScannerInput() {
     
     try {
       // Send URL to backend
-      const response = await axios.post('http://localhost:3000/integration/IntegrationApi', {TargetUrl:url});
+      const response = await axios.post('http://localhost:3000/integration/IntegrationApi', {TargetUrl:url},
+        {
+          headers
+        }
+      );
       if (response.data.success === true) {
         setVulnsBackendData(response.data?.data.vulnerabilities);
         setscanDate(response.data?.data.createdAt)        
         // Navigate to results page with scan data
         navigate("/results");
       } else {
-        setError(response.data.message || "Scan failed. Please try again.");
+        setError(response.data.errMsg || "Scan failed. Please try again.");
         setIsLoading(false);
       }
     } catch (error) {
-      setError(error.response?.data?.message || "An error occurred. Please try again.");
+      setError(error.response?.data?.errMsg || "An error occurred. Please try again.");
       setIsLoading(false);
     }
   };
 
-  return (
+  return <>
+  <Helmet>
+    <title>Scan</title>
+  </Helmet>
     <div className={style.scannerContainer}>
       <div className={style.scannerContent}>
         <h1 className={style.title}>
@@ -87,7 +95,7 @@ export default function ScannerInput() {
                 <div className={style.pulseDot}></div>
                 <div className={style.pulseRing}></div>
               </div>
-              {error && <div className={style.errorMessage}>{error}</div>}
+              {error === 'catch error in auth middleware' ? <div className={style.errorMessage}>the session is expired please login again</div> :<div className={style.errorMessage}>{error}</div>}
             </div>
           </div>
 
@@ -117,5 +125,5 @@ export default function ScannerInput() {
         </div> 
       </div>
     </div>
-  );
+  </>
 }

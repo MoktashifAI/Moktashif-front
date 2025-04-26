@@ -30,7 +30,7 @@ a{
 .navLogo{
     color: var(--fourth_color);
     transition: var(--theme_transition);
-    font-size: 25px;
+    font-size: 1.875rem;
     opacity: 0.65;
     margin-top: .2188rem;
     rotate:-45deg;
@@ -169,4 +169,13 @@ a{
     .RightLeftBorder {
         border-right: none;
     }
+}
+
+
+.about{
+    font-size: 20px;
+    margin-left: 10px;
+    margin-right: 10px;
+    color: var(--fifth_color);
+    transition: var(--theme_transition);
 }

@@ -65,7 +65,7 @@ export default function Navbar() {
           {/* Logo and Desktop Navigation */}
           <div className="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
             <div className="flex shrink-0 items-center">
-              <i className={`fa-solid fa-bug ${style.navLogo} `} />
+              <Link to="/" className={`cursor-pointer fa-solid fa-bug ${style.navLogo} `} />
             </div>
               <div className="hidden sm:ml-6 sm:block">
                 <div className="flex space-x-4">
@@ -89,17 +89,13 @@ export default function Navbar() {
           {/* Right side items */}
           <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
             <div className={style.RightLeftBorder}>
-              <ThemeMode />
               <button type="button">
-                <BellIcon
-                  aria-hidden="true"
-                  className={`${style.notification} size-6`}
-                />
+              <Link to={'/about'} className={`${style.about} fa-solid fa-info`}></Link>
               </button>
+              <ThemeMode />
             </div>
-
             {/* Profile dropdown */}
-              <div className={style.profileMenuContainer} ref={profileMenuRef}>
+            {userToken !== null ? <div className={style.profileMenuContainer} ref={profileMenuRef}>
                 <button
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                   className="relative flex rounded-full text-sm focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 focus:outline-hidden"
@@ -130,8 +126,7 @@ export default function Navbar() {
                     </Link>
                   </div>
                 )}
-              </div>
-            
+              </div>:''}
             {/* signIn button */}
             <div className={style.signInContainerStyle}>
               {userToken !== null ? (

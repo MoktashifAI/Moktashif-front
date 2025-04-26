@@ -1,5 +1,5 @@
 .legalContainer {
-    min-height: 100vh;
+    min-height: 90vh;
     padding: 2rem;
     background-color: var(--body_background);
     transition: var(--theme_transition);
@@ -11,8 +11,10 @@
 .legalContent {
     max-width: 1000px;
     width: 100%;
-    margin: 2rem;
-    background-color: var(--surface_background);
+    margin-top: 6.25rem ;
+    margin-bottom: 2rem;
+    background-color: var(--legal_color) !important;
+    transition: var(--theme_transition);
     padding: 3rem;
     border-radius: 20px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
@@ -21,7 +23,8 @@
 .legalContent h1 {
     font-size: 3rem;
     margin-bottom: 3rem;
-    color: var(--form_color);
+    color: var(--legal_text_color);
+    transition: var(--theme_transition);
     text-align: center;
     position: relative;
     padding-bottom: 1rem;
@@ -45,7 +48,7 @@
     background-color: var(--surface_background);
     border-radius: 15px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-    transition: transform 0.3s ease;
+    transition: var(--theme_transition);
 }
 
 .section:hover {
@@ -54,7 +57,7 @@
 
 .section h2 {
     font-size: 1.8rem;
-    color: var(--form_color);
+    color: var(--legal_text_color);
     margin-bottom: 1.5rem;
     display: flex;
     align-items: center;

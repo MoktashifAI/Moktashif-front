@@ -4,7 +4,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import style from "./Home.module.css";
 import ScannerScene from "./ScannerScene";
 import { Link } from "react-router-dom";
-
+import { Helmet } from "react-helmet";
 gsap.registerPlugin(ScrollTrigger);
 
 export default function Home() {
@@ -74,8 +74,12 @@ export default function Home() {
     };
   }, [isDarkMode]);
 
-  
-  return (
+
+  return <>
+    <Helmet>
+      <title> Home</title>
+    </Helmet>
+
     <div className={style.homeContainer} ref={mainRef}>
       {/* Hero Section */}
       <section className={style.heroSection}>
@@ -157,5 +161,5 @@ export default function Home() {
       </section>
 
     </div>
-  );
+  </>
 }

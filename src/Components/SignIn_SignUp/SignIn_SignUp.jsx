@@ -6,7 +6,7 @@ import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { HashLoader } from "react-spinners";
 import { UserContext } from "../../Context/UserContext.jsx";
-
+import { Helmet } from "react-helmet";
 
 // Constants
 const PASSWORD_REGEX =
@@ -160,7 +160,7 @@ const SignInForm = ({ formik, error, isLoading }) => (
         placeholder="Password"
       />
       {error && <p className="redAlert mt-0 mb-0">{error}</p>}
-      <Link to="/forgetpassword">Forget Your Password?</Link>
+      <Link to="/forgetpassword" className={style.forgotPasswordLink}>Forget Your Password?</Link>
       {isLoading ? (
         <button type="button">
           <HashLoader color="white" size={18} />
@@ -240,7 +240,10 @@ export default function SignIn_SignUp() {
     document.getElementById("container").classList.remove(style.active);
   };
 
-  return (
+  return <>
+    <Helmet>
+      <title>Sign In/Sign Up</title>
+    </Helmet>
     <section className={style.signInBackGround}>
       <div className={`${style.container} mb-10`} id="container">
         <SignUpForm
@@ -283,5 +286,5 @@ export default function SignIn_SignUp() {
         </div>
       </div>
     </section>
-  );
+  </>
 }

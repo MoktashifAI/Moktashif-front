@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import style from './ContactSupport.module.css'
 import { FaEnvelope, FaPhone, FaMapMarkerAlt, FaPaperPlane, FaHeadset } from 'react-icons/fa'
-
+import { Helmet } from "react-helmet";
 const ContactSupport = () => {
     const [formData, setFormData] = useState({
         name: '',
@@ -31,7 +31,10 @@ const ContactSupport = () => {
         console.log('Form submitted:', formData)
     }
 
-    return (
+    return <> 
+    <Helmet>
+        <title>Contact Support</title>
+    </Helmet>
         <div className={`${style.contactContainer}`}>
             <div className={style.heroSection}>
                 <div className={`${style.heroContent} ${isVisible ? style.fadeIn : ''}`}>
@@ -154,7 +157,7 @@ const ContactSupport = () => {
                 </div>
             </div>
         </div>
-    )
+   </>
 }
 
 export default ContactSupport

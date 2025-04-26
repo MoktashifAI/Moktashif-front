@@ -7,13 +7,14 @@ import Results from "./Components/Results/Results";
 import SignIn_SignUp from "./Components/SignIn_SignUp/SignIn_SignUp";
 import UserProfile from "./Components/UserProfile/UserProfile";
 import ContactSupport from "./Components/ContactSupport/ContactSupport";
-import ForgetPassword from "./Components/ForgetPassword/ForgetPassword";
+import ForgetPassword from './Components/ForgetPassword/ForgetPassword';
 import ScannerInput from "./Components/Scanner/ScannerInput";
 import UserContextProvider from "./Context/UserContext";
 import ProtectedRoute from "./Components/ProtectedRoute/ProtectedRoute";
 import TermsOfService from "./Pages/TermsOfService";
 import PrivacyPolicy from "./Pages/PrivacyPolicy";
 import GlobalContextProvider from "./Context/GlobalContext";
+
 
 let routers = createBrowserRouter([
   {
@@ -28,7 +29,7 @@ let routers = createBrowserRouter([
       { path: '*', element: <NotFound /> },
       { path: 'contactsupport', element: < ContactSupport /> },
       { path: 'terms', element: <TermsOfService /> },
-      { path: 'privacy', element: <PrivacyPolicy /> }
+      { path: 'privacy', element: <PrivacyPolicy /> },
     ]
   }
 ]);

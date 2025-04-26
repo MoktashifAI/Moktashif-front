@@ -222,8 +222,13 @@
   background: rgba(99, 110, 151, 0.1);
 }
 
-.loading {
+.loading, .error, .noData {
   text-align: center;
+  padding: 2rem !important;
+  color: var(--text_color);
+}
+
+.loading {
   color: #636E97;
 }
 
@@ -231,17 +236,30 @@
   display: inline-block;
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(99, 110, 151, 0.3);
+  border: 2px solid #636E97;
   border-radius: 50%;
-  border-top-color: #636E97;
+  border-top-color: transparent;
+  margin-right: 10px;
   animation: spin 1s linear infinite;
-  margin-right: 0.5rem;
 }
 
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
+}
+
+.error {
+  color: #DC3545;
+}
+
+.error i, .noData i {
+  margin-right: 10px;
+  font-size: 1.2em;
+}
+
+.noData {
+  color: #636E97;
 }
 
 @media (max-width: 1200px) {

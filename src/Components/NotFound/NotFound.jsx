@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Link, Outlet } from "react-router-dom"
 import style from './NotFound.module.css';
+import { Helmet } from "react-helmet";
 export default function NotFound() {
 
     const [outletFlag,setOutletFlag] = useState(false);
@@ -11,6 +12,9 @@ export default function NotFound() {
 
     return (
         <>
+        <Helmet>
+            <title>Not Found</title>
+        </Helmet>
         {/* {outletFlag?<Outlet></Outlet>:<main className="grid min-h-full place-items-center bg-white px-6 py-24 sm:py-32 lg:px-8">
                 <div className="text-center">
                     <p className="text-base font-semibold text-indigo-600">404</p>

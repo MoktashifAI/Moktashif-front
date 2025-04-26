@@ -1,17 +1,16 @@
 import axios from "axios";
 import React, { useContext, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import style from "./Results.module.css";
 import VulnerabilityChart from "./VulnerabilityChart";
 import { GlobalContext } from "../../Context/GlobalContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { Helmet } from "react-helmet";
 
 export default function Results() {
   const { vulnsBackendData, setVulnsBackendData, scanDate } = useContext(GlobalContext);
-  const [vulns, setVulns] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expandedItems, setExpandedItems] = useState({});
   const [stats, setStats] = useState({
     critical: 0,
     high: 0,
@@ -28,10 +27,7 @@ export default function Results() {
   }, [vulnsBackendData]);
 
   const updateVulnerabilities = (data) => {
-    setVulns(data);
     setLoading(false);
-    
-    // Calculate statistics based on the vulnerabilities
     const newStats = data.reduce(
       (acc, vuln) => {
         const severity = vuln.severity.toLowerCase();
@@ -64,38 +60,38 @@ export default function Results() {
 
   const generatePDFReport = () => {
     const doc = new jsPDF();
-    
+
     // Add title
     doc.setFontSize(20);
     doc.text("Vulnerability Scan Report", 14, 15);
-    
+
     // Add scan date
     doc.setFontSize(12);
     doc.text(`Scan Date: ${new Date().toLocaleString()}`, 14, 25);
-    
+
     // Add summary section
     doc.setFontSize(16);
     doc.text("Summary", 14, 40);
-    
+
     // Add vulnerability counts
     doc.setFontSize(12);
     doc.text(`Critical: ${stats.critical}`, 14, 50);
     doc.text(`High: ${stats.high}`, 14, 60);
     doc.text(`Medium: ${stats.medium}`, 14, 70);
     doc.text(`Low: ${stats.low}`, 14, 80);
-    
+
     // Add findings table
     doc.setFontSize(16);
     doc.text("Detailed Findings", 14, 100);
-    
+
     // Prepare table data
-    const tableData = vulns.map(vuln => [
+    const tableData = vulnsBackendData.map(vuln => [
       vuln.category,
       vuln.severity,
       vuln.description || "No description available",
       vuln.remediation || "No remediation available"
     ]);
-    
+
     // Add table using autoTable
     autoTable(doc, {
       startY: 110,
@@ -111,7 +107,7 @@ export default function Results() {
         3: { cellWidth: 70 }
       }
     });
-    
+
     // Save the PDF
     doc.save('vulnerability-scan-report.pdf');
   };
@@ -124,49 +120,6 @@ export default function Results() {
       low: "#28A745",
     };
     return levels[level.toLowerCase()] || "#636E97";
-  };
-
-  const toggleExpand = (id, type) => {
-    setExpandedItems(prev => ({
-      ...prev,
-      [`${id}-${type}`]: !prev[`${id}-${type}`]
-    }));
-  };
-
-  const truncateText = (text, maxLength = 100) => {
-    if (!text) return "No information available";
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
-
-  const renderExpandableContent = (text, id, type) => {
-    const isExpanded = expandedItems[`${id}-${type}`];
-    const truncatedText = truncateText(text);
-    const shouldShowButton = text && text.length > 100;
-    
-    return (
-      <div className={style.expandableContent}>
-        <div className={`${style.content} ${isExpanded ? style.expanded : ''}`}>
-          {isExpanded ? text : truncatedText}
-        </div>
-        {shouldShowButton && (
-          <button 
-            className={style.expandButton}
-            onClick={() => toggleExpand(id, type)}
-          >
-            {isExpanded ? (
-              <>
-                <i className="fas fa-chevron-up"></i> Show Less
-              </>
-            ) : (
-              <>
-                <i className="fas fa-chevron-down"></i> Read More
-              </>
-            )}
-          </button>
-        )}
-      </div>
-    );
   };
 
   const handleCellClick = (content, title) => {
@@ -200,7 +153,10 @@ export default function Results() {
     );
   };
 
-  return (
+  return <>
+    <Helmet>
+      <title>Results</title>
+    </Helmet>
     <div className={style.resultsContainer}>
       <div className={style.mainGrid}>
         <div className={style.chartSection}>
@@ -223,17 +179,17 @@ export default function Results() {
               </div>
             </div>
             <div className={style.actions}>
-              <button 
+              <button
                 className={style.refreshButton}
                 onClick={handleRefresh}
                 disabled={loading}
               >
                 <i className="fas fa-sync-alt"></i> Refresh
               </button>
-              <button 
+              <button
                 className={style.reportButton}
                 onClick={generatePDFReport}
-                disabled={loading || vulns.length === 0}
+                disabled={loading || !vulnsBackendData?.length}
               >
                 <i className="fas fa-file-export"></i> Report
               </button>
@@ -246,14 +202,6 @@ export default function Results() {
         <div className={style.findingsSection}>
           <div className={style.findingsHeader}>
             <h2>Findings</h2>
-            <div className={style.findingsActions}>
-              <button className={style.actionButton}>
-                <i className="fas fa-trash"></i> Delete
-              </button>
-              <button className={style.actionButton}>
-                <i className="fas fa-filter"></i> Filters
-              </button>
-            </div>
           </div>
 
           <div className={style.findingsTable}>
@@ -275,14 +223,14 @@ export default function Results() {
                       Loading results...
                     </td>
                   </tr>
-                ) : vulns.length === 0 ? (
+                ) : !vulnsBackendData?.length ? (
                   <tr>
                     <td colSpan="5" className={style.loading}>
                       No vulnerabilities found
                     </td>
                   </tr>
                 ) : (
-                  vulns.map((vuln) => (
+                  vulnsBackendData.map((vuln) => (
                     <tr key={vuln._id}>
                       <td>{vuln.category}</td>
                       <td>
@@ -295,14 +243,14 @@ export default function Results() {
                           {vuln.severity}
                         </span>
                       </td>
-                      <td 
+                      <td
                         className={style.descriptionCell}
                         onClick={() => handleCellClick(vuln.description, 'Description')}
                         title={vuln.description || "No description available"}
                       >
                         {vuln.description || "No description available"}
                       </td>
-                      <td 
+                      <td
                         className={style.remediationCell}
                         onClick={() => handleCellClick(vuln.remediation, 'Remediation')}
                         title={vuln.remediation || "No remediation available"}
@@ -328,5 +276,5 @@ export default function Results() {
       </div>
       {renderModal()}
     </div>
-  );
+  </>
 }
