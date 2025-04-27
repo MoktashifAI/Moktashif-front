@@ -1,28 +1,37 @@
-import React from 'react'
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import style from './ThemeMode.module.css';
 
-export default function ThemeMode() {
+function getInitialTheme() {
+    // Try to get from localStorage, else from body, else default to 'light'
+    return (
+        localStorage.getItem('selectedTheme') ||
+        document.body.getAttribute('data-theme') ||
+        'light'
+    );
+}
 
-    const setDarkMode = () => {
-        document.querySelector("body").setAttribute('data-theme', 'dark');
-        localStorage.setItem("selectedTheme", 'dark');
-    }
-    const setlightMode = () => {
-        document.querySelector("body").setAttribute('data-theme', 'light');
-        localStorage.setItem("selectedTheme", 'light');
-    }
-    const selectedTheme = localStorage.getItem("selectedTheme");
-    if (selectedTheme === 'light') {
-        setlightMode();
-    }
+export default function ThemeMode() {
+    const [theme, setTheme] = useState(getInitialTheme);
+
+    // Set theme on body immediately on mount to prevent flash
+    useLayoutEffect(() => {
+        document.body.setAttribute('data-theme', theme);
+    }, [theme]);
+
+    useEffect(() => {
+        localStorage.setItem('selectedTheme', theme);
+    }, [theme]);
+
     const toggleTheme = () => {
-        if (document.querySelector("body").getAttribute('data-theme') === 'dark') {
-            setlightMode();
-        } else if (document.querySelector("body").getAttribute('data-theme') === 'light') {
-            setDarkMode();
-        }
-    }
-    return <>
-        <button  onClick={toggleTheme} type='submit' className='btn' ><i  id='toggleBtn' className={`${style.themeToggleButton} fa-regular fa-moon`} /></button>
-    </>
+        setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+    };
+
+    // Choose icon based on theme
+    const iconClass = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+
+    return (
+        <button onClick={toggleTheme} type='button' className='btn'>
+            <i id='toggleBtn' className={`${style.themeToggleButton} ${iconClass}`} />
+        </button>
+    );
 }

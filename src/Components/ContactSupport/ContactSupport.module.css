@@ -71,13 +71,17 @@
     font-size: 3rem;
     font-weight: 700;
     margin-bottom: 1.5rem;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    color: var(--fourth_color);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    transition: var(--theme_transition);
 }
 
 .heroSubtitle {
     font-size: 1.2rem;
     opacity: 0.9;
     line-height: 1.6;
+    color: var(--text_color);
+    transition: var(--theme_transition);
 }
 
 .contactGrid {
@@ -90,7 +94,7 @@
 }
 
 .contactForm {
-    background: var(--card_background);
+    background: var(--feature_cards_color);
     padding: 2.5rem;
     border-radius: 1.5rem;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
@@ -115,6 +119,7 @@
     font-size: 1.5rem;
     color: var(--text_color);
     margin: 0;
+    transition: var(--theme_transition);
 }
 
 .formGroup {
@@ -128,16 +133,15 @@
     border-radius: 0.75rem;
     background: var(--body_background);
     color: var(--text_color);
-    transition: all 0.3s ease-in-out;
-    font-size: 1rem;
     transition: var(--theme_transition);
+    font-size: 1rem;
 }
 
 .formInput:focus, .formTextarea:focus {
     outline: none;
-    border-color: #636E97;
+    border-color: var(--form_color);
     background: var(--body_background) !important;
-    box-shadow: 0 0 0 4px rgba(99, 110, 151, 0.1);
+    box-shadow: 0 0 0 4px var(--form_color)22;
 }
 
 .formTextarea {
@@ -148,7 +152,7 @@
 .submitButton {
     width: 100%;
     padding: 1rem;
-    background: linear-gradient(45deg, #636E97, #8B95B9);
+    background: linear-gradient(45deg, var(--form_color), var(--fourth_color));
     color: white;
     border: none;
     border-radius: 0.75rem;
@@ -159,7 +163,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    transition: all 0.3s ease;
+    transition: var(--theme_transition);
 }
 
 .submitButton:hover {
@@ -178,16 +182,15 @@
 }
 
 .infoCard {
-    background: var(--card_background);
+    background: var(--feature_cards_color);
     padding: 2rem;
     border-radius: 1.5rem;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
+    transition: var(--theme_transition);
     position: relative;
     overflow: hidden;
     opacity: 0;
     transform: translateX(20px);
-    transition: var(--theme_transition);
 }
 
 .infoCard::before {

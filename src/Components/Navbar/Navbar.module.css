@@ -34,6 +34,7 @@ a{
     opacity: 0.65;
     margin-top: .2188rem;
     rotate:-45deg;
+    margin-right: .3125rem;
 }
 
 .signInContainerStyle{
@@ -177,5 +178,69 @@ a{
     margin-left: 10px;
     margin-right: 10px;
     color: var(--fifth_color);
+    font-weight: 900;
     transition: var(--theme_transition);
+}
+
+.chatInputWrapper {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0;
+    margin-right: 0;
+    min-width: 120px;
+    max-width: 100%;
+}
+
+.chatInput {
+    width: 98%;
+    max-width: 100%;
+    background: var(--feature_cards_color);
+    color: var(--text_color);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.7rem 1.2rem;
+    font-size: 1rem;
+    font-weight: 500;
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    transition: background var(--theme_transition), color var(--theme_transition), box-shadow 0.3s, border var(--theme_transition);
+    border: 1.5px solid var(--form_color);
+    letter-spacing: 0.01em;
+    transition: var(--theme_transition);
+}
+
+.chatInput:focus {
+    background: var(--navbar_background);
+    color: var(--text_color);
+    border: 1.5px solid var(--fourth_color);
+    box-shadow: 0 2px 12px var(--form_color)33;
+}
+
+.chatInput::placeholder {
+    color: var(--fifth_color);
+    opacity: 1;
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 0.01em;
+    transition: color var(--theme_transition);
+}
+
+@media (max-width: 900px) {
+    .chatInputWrapper {
+        margin-left: 0;
+        margin-right: 0;
+    }
+}
+
+@media (max-width: 640px) {
+    .chatInputWrapper {
+        min-width: 0;
+        margin: 0 0.2rem;
+    }
+    .chatInput {
+        font-size: 0.95rem;
+        padding: 0.5rem 0.8rem;
+    }
 }

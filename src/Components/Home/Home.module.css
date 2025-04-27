@@ -13,6 +13,7 @@
     overflow-x: hidden;
     transition: var(--theme_transition);
     margin-bottom: 0rem;
+    position: relative;
 }
 
 /* Hero Section */
@@ -261,4 +262,22 @@
         padding: 1rem 2rem;
         font-size: 1rem;
     }
+}
+
+.floatingContactSupport{
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    background-color: var(--navbar_background);
+    color: var(--text_color) !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    cursor: pointer;
+    transition: var(--theme_transition);
+    z-index: 10000000;
 }

@@ -38,6 +38,11 @@ const ForgetPassword = () => {
         e.preventDefault();
         setLoading(true);
         setError('');
+        if (newPassword !== confirmPassword) {
+            setError('Passwords do not match');
+            setLoading(false);
+            return;
+        }
         try {
             const response = await axios.patch('http://localhost:3000/user/resetPassword', {
                 email,
@@ -51,7 +56,8 @@ const ForgetPassword = () => {
                 }, 2000);
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Something went wrong');
+            
+            setError(err.response?.data?.errMsg || 'Something went wrong');
         } finally {
             setLoading(false);
         }
@@ -62,6 +68,7 @@ const ForgetPassword = () => {
             <title>Forgot Password</title>
         </Helmet>
         <div className={style.authContainer}>
+            <div className={style.animatedBg}></div>
             <motion.div
                 className={style.authForm}
                 initial={{ opacity: 0, y: 20 }}
@@ -134,6 +141,17 @@ const ForgetPassword = () => {
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 required
                                 placeholder="Enter new password"
+                            />
+                        </div>
+                        <div className={style.formGroup}>
+                            <label className={style.formLabel} htmlFor="confirmPassword">Confirm New Password</label>
+                            <input
+                                type="password"
+                                id="confirmPassword"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                                placeholder="Confirm new password"
                             />
                         </div>
                         <button

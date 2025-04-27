@@ -14,6 +14,7 @@ import ProtectedRoute from "./Components/ProtectedRoute/ProtectedRoute";
 import TermsOfService from "./Pages/TermsOfService";
 import PrivacyPolicy from "./Pages/PrivacyPolicy";
 import GlobalContextProvider from "./Context/GlobalContext";
+import About from "./Pages/About/About";
 
 
 let routers = createBrowserRouter([
@@ -30,6 +31,7 @@ let routers = createBrowserRouter([
       { path: 'contactsupport', element: < ContactSupport /> },
       { path: 'terms', element: <TermsOfService /> },
       { path: 'privacy', element: <PrivacyPolicy /> },
+      { path: 'about', element: <About /> },
     ]
   }
 ]);

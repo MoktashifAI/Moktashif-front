@@ -159,7 +159,9 @@ export default function Home() {
           </div>
         </div>
       </section>
-
+      <Link to="/contactsupport" className={`${style.floatingContactSupport}`}>
+      <i  className="fa-solid fa-headset"></i>
+      </Link>
     </div>
   </>
 }

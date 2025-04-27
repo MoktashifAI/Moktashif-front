@@ -7,9 +7,9 @@ import { useContext, useState, useRef, useEffect } from "react";
 import { UserContext } from "../../Context/UserContext.jsx";
 import { useNavigate } from "react-router-dom";
 
-const navigation = [
-  { name: "Home", href: "/", current: false }
-];
+// const navigation = [
+//   { name: "Home", href: "/", current: false }
+// ];
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -21,6 +21,7 @@ export default function Navbar() {
   const navigate = useNavigate();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
+  const [chatInput, setChatInput] = useState("");
 
   const logOut = () => {
     localStorage.removeItem('userToken');
@@ -41,6 +42,13 @@ export default function Navbar() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  const handleChatInputKeyDown = (e) => {
+    if (e.key === "Enter" && chatInput.trim() !== "") {
+      navigate(`/chatbot?query=${encodeURIComponent(chatInput)}`);
+      setChatInput("");
+    }
+  };
 
   return (
     <section as="nav" className={style.navBarStyle}>
@@ -67,66 +75,60 @@ export default function Navbar() {
             <div className="flex shrink-0 items-center">
               <Link to="/" className={`cursor-pointer fa-solid fa-bug ${style.navLogo} `} />
             </div>
-              <div className="hidden sm:ml-6 sm:block">
-                <div className="flex space-x-4">
-                  {navigation.map((item) => (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      className={classNames(
-                        location.pathname === item.href
-                          ? `${style.navLinksStyle} ${style.aHover}`
-                          : style.navLinksStyle
-                      )}
-                    >
-                      {item.name}
-                    </Link>
-                  ))}
-                </div>
-              </div>
+            {/* Wide Chat Input */}
+            <div className={style.chatInputWrapper}>
+              <input
+                type="text"
+                className={style.chatInput}
+                placeholder="Ask Moktashif anything about security"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={handleChatInputKeyDown}
+              />
+            </div>
           </div>
 
           {/* Right side items */}
           <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
             <div className={style.RightLeftBorder}>
               <button type="button">
-              <Link to={'/about'} className={`${style.about} fa-solid fa-info`}></Link>
+                <Link to={'/about'} className={`${style.about} fa-solid fa-info`}></Link>
               </button>
               <ThemeMode />
             </div>
             {/* Profile dropdown */}
             {userToken !== null ? <div className={style.profileMenuContainer} ref={profileMenuRef}>
-                <button
-                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className="relative flex rounded-full text-sm focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 focus:outline-hidden"
-                >
-                  <span className="absolute -inset-1.5" />
-                  <span className="sr-only">Open user menu</span>
-                  <img
-                    alt=""
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                    className="size-8 rounded-full"
-                  />
-                </button>
-                {isProfileMenuOpen && (
-                  <div className={style.profileMenu}>
-                    <Link
-                      to="profile"
-                      className={style.profileMenuItem}
-                      onClick={() => setIsProfileMenuOpen(false)}
-                    >
-                      Your Profile
-                    </Link>
-                    <Link
-                      to=""
-                      className={style.profileMenuItem}
-                      onClick={() => setIsProfileMenuOpen(false)}
-                    >
-                      Settings
-                    </Link>
-                  </div>
-                )}
-              </div>:''}
+              <button
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                className="relative flex rounded-full text-sm focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-gray-800 focus:outline-hidden"
+              >
+                <span className="absolute -inset-1.5" />
+                <span className="sr-only">Open user menu</span>
+                <img
+                  alt=""
+                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                  className="size-8 rounded-full"
+                />
+              </button>
+              {isProfileMenuOpen && (
+                <div className={style.profileMenu}>
+                  <Link
+                    to="profile"
+                    className={style.profileMenuItem}
+                    onClick={() => setIsProfileMenuOpen(false)}
+                  >
+                    Your Profile
+                  </Link>
+                  <Link
+                    to=""
+                    className={style.profileMenuItem}
+                    onClick={() => setIsProfileMenuOpen(false)}
+                  >
+                    Settings
+                  </Link>
+                </div>
+              )}
+            </div> : ''}
             {/* signIn button */}
             <div className={style.signInContainerStyle}>
               {userToken !== null ? (
@@ -144,7 +146,7 @@ export default function Navbar() {
       </div>
 
       {/* Mobile menu */}
-      <section className="sm:hidden">
+      {/* <section className="sm:hidden">
         <div className="space-y-1 px-2 pt-2 pb-3">
           {navigation.map((item) => (
             <button
@@ -161,7 +163,7 @@ export default function Navbar() {
             </button>
           ))}
         </div>
-      </section>
+      </section> */}
     </section>
   );
 }

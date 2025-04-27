@@ -35,7 +35,7 @@ const ContactSupport = () => {
     <Helmet>
         <title>Contact Support</title>
     </Helmet>
-        <div className={`${style.contactContainer}`}>
+        <div className={`${style.contactContainer} `}>
             <div className={style.heroSection}>
                 <div className={`${style.heroContent} ${isVisible ? style.fadeIn : ''}`}>
                     <h1 className={style.heroTitle}>Get in Touch</h1>
@@ -47,7 +47,7 @@ const ContactSupport = () => {
             </div>
 
             <div className={` ${style.contactGrid}`}>
-                <div className={`mb-10 ${style.contactForm} ${isVisible ? style.slideInLeft : ''}`}>
+                <div className={`mb-20 ${style.contactForm} ${isVisible ? style.slideInLeft : ''}`}>
                     <div className={style.formHeader}>
                         <FaHeadset className={style.formIcon} />
                         <h2>Send us a Message</h2>
@@ -114,7 +114,7 @@ const ContactSupport = () => {
                     </form>
                 </div>
 
-                <div className={`mb-10 ${style.contactInfo}`}>
+                <div className={`mb-20 ${style.contactInfo}`}>
                     <div className={`${style.infoCard} ${isVisible ? style.slideInRight : ''}`}>
                         <div className={style.infoIconWrapper}>
                             <FaEnvelope className={style.infoIcon} />
