@@ -245,6 +245,7 @@ export default function SignIn_SignUp() {
       <title>Sign In/Sign Up</title>
     </Helmet>
     <section className={style.signInBackGround}>
+      <div className={style.animatedBg}></div>
       <div className={`${style.container} mb-10`} id="container">
         <SignUpForm
           formik={registerFormik}

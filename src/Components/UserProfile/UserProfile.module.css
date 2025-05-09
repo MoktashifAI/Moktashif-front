@@ -1,0 +1,298 @@
+.profilePageBg {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--body_background);
+  position: relative;
+  overflow: hidden;
+  padding: 2rem 1rem;
+}
+
+.animatedBg {
+  position: absolute;
+  top: -50%;
+  left: -25%;
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(
+    circle at center,
+    var(--form_color) 0%,
+    transparent 70%
+  );
+  opacity: 0.1;
+  animation: rotate 20s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.profileContainer {
+  width: 100%;
+  max-width: 800px;  /* Increased from 500px */
+  background: var(--navbar_background);
+  border-radius: 24px;
+  padding: 3rem;  /* Increased from 2rem */
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  position: relative;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transform: translateY(20px);
+  opacity: 0;
+  animation: slideUp 0.6s ease forwards;
+}
+
+@keyframes slideUp {
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.profileHeader {
+  display: flex;
+  gap: 3rem;  /* Increased from 2rem */
+  align-items: center;
+  margin-bottom: 3rem;  /* Increased from 2.5rem */
+  background: var(--feature_cards_color);
+  padding: 2rem;
+  border-radius: 16px;
+  transition: all 0.3s ease;
+}
+
+.profileHeader:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+.profilePicWrapper {
+  position: relative;
+  width: 150px;  /* Increased from 120px */
+  height: 150px;  /* Increased from 120px */
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.profilePicWrapper:hover {
+  transform: scale(1.05);
+}
+
+.profilePic {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--form_color);
+  transition: all 0.3s ease;
+}
+
+.editPicBtn {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: var(--form_color);
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.editPicBtn:hover {
+  transform: scale(1.1);
+  background: var(--fourth_color);
+}
+
+.userInfo {
+  flex: 1;
+}
+
+.userName {
+  font-size: 2.2rem;  /* Increased from 1.8rem */
+  font-weight: 600;
+  color: var(--text_color);
+  margin-bottom: 0.75rem;  /* Increased from 0.5rem */
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.userEmail {
+  font-size: 1.2rem;  /* Increased from 1rem */
+  color: var(--text_color);
+  opacity: 0.8;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(var(--form_color_rgb), 0.1);
+  border-radius: 8px;
+  display: inline-block;
+}
+
+.scanHistorySection {
+  margin-top: 2.5rem;  /* Increased from 2rem */
+  padding: 2rem;  /* Increased from 1.5rem */
+  background: var(--feature_cards_color);
+  border-radius: 20px;  /* Increased from 16px */
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.scanHistorySection:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.historyTitle {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text_color);
+  margin-bottom: 1rem;
+}
+
+.historyBtn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, var(--form_color) 0%, var(--fourth_color) 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.historyBtn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: 0.5s;
+}
+
+.historyBtn:hover::before {
+  left: 100%;
+}
+
+@media (max-width: 768px) {
+  .profileHeader {
+    flex-direction: column;
+    text-align: center;
+    gap: 1.5rem;
+  }
+
+  .profilePicWrapper {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto;
+  }
+
+  .userName {
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+
+  .nameInput {
+    font-size: 1.5rem;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.loading {
+  background: linear-gradient(
+    90deg,
+    var(--feature_cards_color) 25%,
+    var(--navbar_background) 50%,
+    var(--feature_cards_color) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+.uploadBtn {
+  width: 100%;
+  padding: 1.2rem;
+  background: linear-gradient(135deg, var(--form_color) 0%, var(--fourth_color) 100%);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  margin: 1.5rem 0;
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.uploadBtn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: 0.6s;
+}
+
+.uploadBtn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+.uploadBtn:hover::before {
+  left: 100%;
+}
+
+.uploadBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.uploadBtn:disabled::before {
+  display: none;
+}

@@ -9,7 +9,7 @@ import autoTable from "jspdf-autotable";
 import { Helmet } from "react-helmet";
 
 export default function Results() {
-  const { vulnsBackendData, setVulnsBackendData, scanDate } = useContext(GlobalContext);
+  const { vulnsBackendData, setVulnsBackendData, scanDate, headers } = useContext(GlobalContext);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     critical: 0,
@@ -19,7 +19,6 @@ export default function Results() {
   });
   const [modalContent, setModalContent] = useState(null);
   const [showModal, setShowModal] = useState(false);
-
   useEffect(() => {
     if (vulnsBackendData) {
       updateVulnerabilities(vulnsBackendData);
@@ -47,7 +46,8 @@ export default function Results() {
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('http://localhost:3000/integration/IntegrationApi');
+      const response = await axios.get('http://localhost:3000/vulns/getScanHistoryForSpecificUser', { headers });
+      console.log(response.data?.data.vulnerabilities);
       if (response.data.success === true) {
         setVulnsBackendData(response.data?.data.vulnerabilities);
         updateVulnerabilities(response.data?.data.vulnerabilities);

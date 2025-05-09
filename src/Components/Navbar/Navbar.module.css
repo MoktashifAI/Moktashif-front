@@ -196,12 +196,12 @@ a{
 .chatInput {
     width: 98%;
     max-width: 100%;
-    background: var(--feature_cards_color);
+    background: transparent;
     color: var(--text_color);
     border: none;
     border-radius: 0.5rem;
-    padding: 0.7rem 1.2rem;
-    font-size: 1rem;
+    padding: 0.5rem 1.2rem;
+    font-size: 20px;
     font-weight: 500;
     outline: none;
     box-shadow: 0 2px 8px rgba(0,0,0,0.10);

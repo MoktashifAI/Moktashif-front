@@ -1,4 +1,4 @@
-import { Bars3Icon, BellIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import style from "./Navbar.module.css";
 import { Link, useLocation } from "react-router-dom";
 import "../../assets/GlobalStyle.css";
@@ -6,6 +6,7 @@ import ThemeMode from "../ThemeMode/ThemeMode";
 import { useContext, useState, useRef, useEffect } from "react";
 import { UserContext } from "../../Context/UserContext.jsx";
 import { useNavigate } from "react-router-dom";
+import axios from 'axios';
 
 // const navigation = [
 //   { name: "Home", href: "/", current: false }
@@ -22,6 +23,22 @@ export default function Navbar() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const [chatInput, setChatInput] = useState("");
+  const [profilePhoto, setProfilePhoto] = useState(null);
+
+  useEffect(() => {
+    async function fetchProfilePhoto() {
+      if (!userToken) { setProfilePhoto(null); return; }
+      try {
+        const res = await axios.get('http://localhost:3000/user/profile', {
+          headers: { Authorization: `Bearer ${userToken}` },
+        });
+        setProfilePhoto(res.data.photo);
+      } catch {
+        setProfilePhoto(null);
+      }
+    }
+    fetchProfilePhoto();
+  }, [userToken]);
 
   const logOut = () => {
     localStorage.removeItem('userToken');
@@ -80,7 +97,7 @@ export default function Navbar() {
               <input
                 type="text"
                 className={style.chatInput}
-                placeholder="Ask Moktashif anything about security"
+                placeholder="Ask Moktashif Anything About Security ..."
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
                 onKeyDown={handleChatInputKeyDown}
@@ -91,9 +108,7 @@ export default function Navbar() {
           {/* Right side items */}
           <div className="absolute inset-y-0 right-0 flex items-center pr-2 sm:static sm:inset-auto sm:ml-6 sm:pr-0">
             <div className={style.RightLeftBorder}>
-              <button type="button">
-                <Link to={'/about'} className={`${style.about} fa-solid fa-info`}></Link>
-              </button>
+              <Link to={'/about'} className={`${style.about} fa-solid fa-info`}></Link>
               <ThemeMode />
             </div>
             {/* Profile dropdown */}
@@ -106,14 +121,14 @@ export default function Navbar() {
                 <span className="sr-only">Open user menu</span>
                 <img
                   alt=""
-                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                  src={profilePhoto || `https://ui-avatars.com/api/?name=User&background=${encodeURIComponent(getComputedStyle(document.documentElement).getPropertyValue('--fourth_color'))}&color=FFFFFF&size=256`}
                   className="size-8 rounded-full"
                 />
               </button>
               {isProfileMenuOpen && (
                 <div className={style.profileMenu}>
                   <Link
-                    to="profile"
+                    to="/profile"
                     className={style.profileMenuItem}
                     onClick={() => setIsProfileMenuOpen(false)}
                   >

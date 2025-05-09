@@ -1,5 +1,6 @@
 import React from 'react';
 import styles from './About.module.css';
+import { Link } from 'react-router-dom';
 
 const About = () => {
     return (
@@ -65,9 +66,9 @@ const About = () => {
                 <div className={styles.section}>
                     <h2 className={styles.sectionTitle}>Ready to Secure Your Website?</h2>
                     <div className={styles.ctaWrapper}>
-                        <a href="/scanner" className={styles.ctaButton}>
+                        <Link to={'/scanner'} className={styles.ctaButton}>
                             Start Scanning <span className={styles.ctaArrow}>→</span>
-                        </a>
+                        </Link>
                     </div>
                 </div>
             </div>
