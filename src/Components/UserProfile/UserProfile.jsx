@@ -3,9 +3,9 @@ import styles from './UserProfile.module.css';
 import { UserContext } from '../../Context/UserContext';
 import { Helmet } from 'react-helmet';
 import axios from 'axios';
-import { FaEdit, FaCamera } from 'react-icons/fa';
-
-const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?name=User&background=random&size=256';
+import { FaEdit, FaCamera, FaPen } from 'react-icons/fa';
+import { GlobalContext } from '../../Context/GlobalContext';
+const DEFAULT_AVATAR = `https://ui-avatars.com/api/?name=User&background=${encodeURIComponent(getComputedStyle(document.documentElement).getPropertyValue('black'))}&color=FFFFFF&size=256`;
 
 function maskEmail(email) {
     if (!email) return '';
@@ -15,40 +15,38 @@ function maskEmail(email) {
 }
 
 export default function UserProfile() {
-    const { userToken } = useContext(UserContext);
-    const [profile, setProfile] = useState(null);
+    const {headers} = useContext(GlobalContext);
+    // const { userToken } = useContext(UserContext);
     const [loading, setLoading] = useState(true);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tempName, setTempName] = useState('');
-    const [photo, setPhoto] = useState(null);
+    const [photo, setPhoto] = useState('');
     const [photoPreview, setPhotoPreview] = useState(null);
     const [photoSaving, setPhotoSaving] = useState(false);
-    const fileInputRef = useRef();
+    const [profileData, setProfileData] = useState('');
 
-    const PLACEHOLDER = {
-        userName: 'Loading... ',
-        email: 'loading@email.com',
-        photo: '',
-        createdAt: new Date().toISOString(),
-    };
 
-    useEffect(() => {
-        setLoading(true);
-        setTimeout(() => {
-            setProfile({
-                userName: 'John Doe',
-                email: 'john.doe@example.com',
-                photo: '',
-                createdAt: '2023-01-01T00:00:00.000Z',
-            });
-            setTempName('John Doe');
-            setLoading(false);
-        }, 1200);
-    }, [userToken]);
+    // const fileInputRef = useRef();
+// if(profile!== null){
+//     setLoading(false);
+// }
+    // useEffect(() => {
+    //     setLoading(true);
+    //     setTimeout(() => {
+    //         // setProfile({
+    //         //     userName: 'John Doe',
+    //         //     email: 'john.doe@example.com',
+    //         //     photo: '',
+    //         //     createdAt: '2023-01-01T00:00:00.000Z',
+    //         // });
+    //         // setTempName('John Doe');
+    //         setLoading(false);
+    //     }, 1200);
+    // }, [userToken]);
 
     const handleNameEdit = () => {
         if (isEditingName && tempName.trim()) {
-            setProfile(prev => ({ ...prev, userName: tempName }));
+            
         }
         setIsEditingName(!isEditingName);
     };
@@ -58,22 +56,48 @@ export default function UserProfile() {
         if (file) {
             setPhoto(file);
             setPhotoPreview(URL.createObjectURL(file));
+            handlePhotoUpload(file); // Automatically upload when file is selected
         }
     };
 
-    const handlePhotoUpload = async () => {
-        if (!photo) return;
-        setPhotoSaving(true);
-        setTimeout(() => {
-            setProfile(prev => ({ ...prev, photo: photoPreview }));
-            setPhoto(null);
-            setPhotoPreview(null);
-            setPhotoSaving(false);
-        }, 1000);
-    };
+    // const handlePhotoUpload = async (photoFile) => {
+    //     const fileToUpload = photoFile || photo;
+    //     if (!fileToUpload) return;
+        
+    //     setPhotoSaving(true);
+    //     try {
+    //         const formData = new FormData();
+    //         formData.append('photo', fileToUpload);
+            
+    //         const response = await axios.post('http://localhost:3000/user/uploadImg', formData, {
+    //             headers
+    //         });
+            
+    //         if (response.data?.success) {
+    //             // setProfile(prev => ({ ...prev, photo: response.data.photoUrl }));
+    //             // setPhoto(null);
+    //             // setPhotoPreview(null);
+    //         }
+    //     } catch (error) {
+    //         console.error('Error uploading photo:', error);
+    //     } finally {
+    //         setPhotoSaving(false);
+    //     }
+    // };
 
-    const displayProfile = loading ? PLACEHOLDER : profile;
-
+    const getUserProfile = async () => {
+        const fetchedUserProfile = await axios.get(`http://localhost:3000/user/getProfile`,{headers});
+        if(fetchedUserProfile.data?.success){
+            setProfileData(fetchedUserProfile.data?.data);
+            setPhoto(fetchedUserProfile.data?.data?.userImg?.secure_url)
+            setLoading(false);
+        }
+    }
+    
+    useEffect(()=>{
+        getUserProfile(); 
+        // console.log(profileData.userImg.secure_url);
+    }, []);
     return (
         <div className={styles.profilePageBg}>
             <div className={styles.animatedBg} />
@@ -82,17 +106,24 @@ export default function UserProfile() {
                 <div className={styles.profileHeader}>
                     <div className={styles.profilePicWrapper}>
                         <img
-                            src={photoPreview || displayProfile.photo || DEFAULT_AVATAR}
+                            src={photo || DEFAULT_AVATAR}
                             alt="Profile"
                             className={styles.profilePic}
                         />
-                        <label className={styles.editPicBtn}>
-                            <FaCamera />
+                        <label className={`${styles.editPicBtn} ${photoSaving ? styles.uploading : ''}`}>
+                            {photoSaving ? (
+                                <FaPen className={styles.spinningIcon} />
+                            ) : photo ? (
+                                <FaPen />
+                            ) : (
+                                <FaCamera />
+                            )}
                             <input
                                 type="file"
                                 accept="image/*"
                                 onChange={handlePhotoChange}
                                 style={{ display: 'none' }}
+                                disabled={photoSaving}
                             />
                         </label>
                     </div>
@@ -108,15 +139,17 @@ export default function UserProfile() {
                             />
                         ) : (
                             <div className={styles.userName}>
-                                {displayProfile.userName}
+                                {profileData?.userName}
                                 <button className={styles.editNameBtn} onClick={handleNameEdit}>
                                     <FaEdit />
                                 </button>
                             </div>
                         )}
-                        <div className={styles.userEmail}>{maskEmail(displayProfile.email)}</div>
+                        <div className={styles.userEmail}>
+                            {maskEmail(profileData?.email)}
+                        </div>
                         <div className={styles.creationDate}>
-                            Member since: {new Date(displayProfile.createdAt).toLocaleDateString()}
+                            Member since: {new Date(profileData?.createdAt).toLocaleDateString()}
                         </div>
                     </div>
                 </div>

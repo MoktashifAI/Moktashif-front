@@ -7,6 +7,7 @@ import { useContext, useState, useRef, useEffect } from "react";
 import { UserContext } from "../../Context/UserContext.jsx";
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
+import { GlobalContext } from "../../Context/GlobalContext.jsx";
 
 // const navigation = [
 //   { name: "Home", href: "/", current: false }
@@ -18,35 +19,34 @@ function classNames(...classes) {
 
 export default function Navbar() {
   const { userToken, setUserToken } = useContext(UserContext);
-  const location = useLocation();
+  const { headers } = useContext(GlobalContext);
   const navigate = useNavigate();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const [chatInput, setChatInput] = useState("");
-  const [profilePhoto, setProfilePhoto] = useState(null);
-
-  useEffect(() => {
-    async function fetchProfilePhoto() {
-      if (!userToken) { setProfilePhoto(null); return; }
-      try {
-        const res = await axios.get('http://localhost:3000/user/profile', {
-          headers: { Authorization: `Bearer ${userToken}` },
-        });
-        setProfilePhoto(res.data.photo);
-      } catch {
-        setProfilePhoto(null);
-      }
-    }
-    fetchProfilePhoto();
-  }, [userToken]);
+  const [profilePhoto, setProfilePhoto] = useState('');
 
   const logOut = () => {
     localStorage.removeItem('userToken');
     setUserToken(null);
     navigate('/home');
   };
+  // const getUserProfilePic = async () => {
+  //   const fetchedUserProfilePic = await axios.get(`http://localhost:3000/user/getProfile`, { headers });
+  //   if (fetchedUserProfilePic.data?.success) {
+  //     setProfilePhoto(fetchedUserProfilePic.data?.data?.userImg?.secure_url)
+  //   }
+  // }
 
-  // Close profile menu when clicking outside
+
+
+  const handleChatInputKeyDown = (e) => {
+    if (e.key === "Enter" && chatInput.trim() !== "") {
+      navigate(`/chatbot?query=${encodeURIComponent(chatInput)}`);
+      setChatInput("");
+    }
+  };
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
@@ -60,12 +60,9 @@ export default function Navbar() {
     };
   }, []);
 
-  const handleChatInputKeyDown = (e) => {
-    if (e.key === "Enter" && chatInput.trim() !== "") {
-      navigate(`/chatbot?query=${encodeURIComponent(chatInput)}`);
-      setChatInput("");
-    }
-  };
+  // useEffect(() => {
+  //   getUserProfilePic();
+  // }, []);
 
   return (
     <section as="nav" className={style.navBarStyle}>
@@ -121,7 +118,7 @@ export default function Navbar() {
                 <span className="sr-only">Open user menu</span>
                 <img
                   alt=""
-                  src={profilePhoto || `https://ui-avatars.com/api/?name=User&background=${encodeURIComponent(getComputedStyle(document.documentElement).getPropertyValue('--fourth_color'))}&color=FFFFFF&size=256`}
+                  src={profilePhoto || `https://ui-avatars.com/api/?name=User&background=${encodeURIComponent(getComputedStyle(document.documentElement).getPropertyValue('black'))}&color=FFFFFF&size=256`}
                   className="size-8 rounded-full"
                 />
               </button>
@@ -162,23 +159,23 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {/* <section className="sm:hidden">
-        <div className="space-y-1 px-2 pt-2 pb-3">
-          {navigation.map((item) => (
-            <button
-              key={item.name}
-              as={Link}
-              to={item.href}
-              className={classNames(
-                location.pathname === item.href
-                  ? `${style.mobileMenuItem} ${style.aHover}`
-                  : style.mobileMenuItem
-              )}
-            >
-              {item.name}
-            </button>
-          ))}
-        </div>
-      </section> */}
+      <div className="space-y-1 px-2 pt-2 pb-3">
+        {navigation.map((item) => (
+          <button
+            key={item.name}
+            as={Link}
+            to={item.href}
+            className={classNames(
+              location.pathname === item.href
+                ? `${style.mobileMenuItem} ${style.aHover}`
+                : style.mobileMenuItem
+            )}
+          >
+            {item.name}
+          </button>
+        ))}
+      </div>
+    </section> */}
     </section>
   );
 }

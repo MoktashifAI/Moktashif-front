@@ -7,6 +7,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { HashLoader } from "react-spinners";
 import { UserContext } from "../../Context/UserContext.jsx";
 import { Helmet } from "react-helmet";
+import { GlobalContext } from "../../Context/GlobalContext.jsx";
 
 // Constants
 const PASSWORD_REGEX =
@@ -185,12 +186,12 @@ export default function SignIn_SignUp() {
   const handleRegister = async (values) => {
     setIsRegisterLoading(true);
     try {
-      const response = await axios.post(`http://localhost:3000/user/signUp`, values);
+      const response = await axios.post(`http://localhost:3000/user/signUp`, values);      
       if (response.data?.success) {
         setIsRegisterLoading(false);
         removeActive();
       }
-    } catch (error) {
+    } catch (error) {   
       setIsRegisterLoading(false);
       setRegisterError(error?.response?.data?.errMsg || "Registration failed");
     }
@@ -210,8 +211,7 @@ export default function SignIn_SignUp() {
       setIsSignInLoading(false);
       setSignInError(error?.response?.data?.errMsg || "Sign in failed");
     }
-  };
-
+  }; 
   const registerFormik = useFormik({
     initialValues: {
       userName: "",
@@ -220,7 +220,7 @@ export default function SignIn_SignUp() {
       acceptTerms: false,
     },
     validationSchema: registerValidationSchema,
-    onSubmit: handleRegister,
+    onSubmit: handleRegister
   });
 
   const signInFormik = useFormik({
@@ -229,7 +229,7 @@ export default function SignIn_SignUp() {
       password: "",
     },
     validationSchema: signInValidationSchema,
-    onSubmit: handleSignIn,
+    onSubmit: handleSignIn
   });
 
   const setActive = () => {
