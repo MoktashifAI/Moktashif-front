@@ -1,6 +1,6 @@
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import style from "./Navbar.module.css";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import "../../assets/GlobalStyle.css";
 import ThemeMode from "../ThemeMode/ThemeMode";
 import { useContext, useState, useRef, useEffect, useCallback } from "react";
@@ -9,10 +9,6 @@ import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { GlobalContext } from "../../Context/GlobalContext.jsx";
 import { useProfile } from '../../Context/ProfileContext';
-
-// const navigation = [
-//   { name: "Home", href: "/", current: false }
-// ];
 
 const DEFAULT_AVATAR = `https://ui-avatars.com/api/?name=User&background=${encodeURIComponent(getComputedStyle(document.documentElement).getPropertyValue('black'))}&color=FFFFFF&size=256`;
 
@@ -137,30 +133,14 @@ export default function Navbar() {
               >
                 <span className="absolute -inset-1.5" />
                 <span className="sr-only">Open user menu</span>
+                <Link to="/profile">
                 <img
                   alt="Profile"
                   src={profilePhoto}
-                  className={`size-8 rounded-full ${loading ? style.loadingImage : ''}`}
+                  className={`size-9 rounded-full ${loading ? style.loadingImage : ''}`}
                 />
+                </Link>
               </button>
-              {isProfileMenuOpen && (
-                <div className={style.profileMenu}>
-                  <Link
-                    to="/profile"
-                    className={style.profileMenuItem}
-                    onClick={() => setIsProfileMenuOpen(false)}
-                  >
-                    Your Profile
-                  </Link>
-                  <Link
-                    to=""
-                    className={style.profileMenuItem}
-                    onClick={() => setIsProfileMenuOpen(false)}
-                  >
-                    Settings
-                  </Link>
-                </div>
-              )}
             </div> : ''}
             {/* signIn button */}
             <div className={style.signInContainerStyle}>
@@ -177,26 +157,6 @@ export default function Navbar() {
           </div>
         </div>
       </div>
-
-      {/* Mobile menu */}
-      {/* <section className="sm:hidden">
-      <div className="space-y-1 px-2 pt-2 pb-3">
-        {navigation.map((item) => (
-          <button
-            key={item.name}
-            as={Link}
-            to={item.href}
-            className={classNames(
-              location.pathname === item.href
-                ? `${style.mobileMenuItem} ${style.aHover}`
-                : style.mobileMenuItem
-            )}
-          >
-            {item.name}
-          </button>
-        ))}
-      </div>
-    </section> */}
     </section>
   );
 }

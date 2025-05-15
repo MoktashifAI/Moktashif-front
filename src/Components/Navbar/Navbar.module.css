@@ -1,4 +1,4 @@
-a{
+a {
     text-decoration: none;
 }
 
@@ -6,7 +6,7 @@ a{
     color: white;
 } */
 
-.navBarStyle{
+.navBarStyle {
     background-color: var(--navbar_background);
     position: fixed;
     top: 0;
@@ -19,7 +19,7 @@ a{
     width: 100vw;
 }
 
-.navLinksStyle{
+.navLinksStyle {
     color: var(--fifth_color);
     transition: var(--theme_transition);
     font-weight: 700;
@@ -27,17 +27,17 @@ a{
     letter-spacing: 0rem;
 }
 
-.navLogo{
+.navLogo {
     color: var(--fourth_color);
     transition: var(--theme_transition);
     font-size: 1.875rem;
     opacity: 0.65;
     margin-top: .2188rem;
-    rotate:-45deg;
+    rotate: -45deg;
     margin-right: .3125rem;
 }
 
-.signInContainerStyle{
+.signInContainerStyle {
     margin-left: .9375rem;
     background-color: var(--fourth_color);
     transition: var(--theme_transition);
@@ -50,7 +50,7 @@ a{
     opacity: 0.7;
 }
 
-.signInStyle{
+.signInStyle {
     color: var(--SignIn_color);
     transition: var(--theme_transition);
     font-weight: 500;
@@ -59,7 +59,7 @@ a{
     font-weight: 600;
 }
 
-.notification{
+.notification {
     font-size: 1.5rem !important;
     color: var(--fifth_color) !important;
     font-weight: 300 !important;
@@ -68,7 +68,7 @@ a{
     margin-left: 1.25rem
 }
 
-.RightLeftBorder{
+.RightLeftBorder {
     border-left: .125rem solid var(--fifth_color);
     border-right: .125rem solid var(--fifth_color);
     display: flex;
@@ -173,7 +173,7 @@ a{
 }
 
 
-.about{
+.about {
     font-size: 20px;
     margin-left: 10px;
     margin-right: 10px;
@@ -204,7 +204,7 @@ a{
     font-size: 1rem;
     font-weight: 500;
     outline: none;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
     transition: background var(--theme_transition), color var(--theme_transition), box-shadow 0.3s, border var(--theme_transition);
     border: 1.5px solid var(--form_color);
     letter-spacing: 0.01em;
@@ -239,6 +239,7 @@ a{
         min-width: 0;
         margin: 0 0.2rem;
     }
+
     .chatInput {
         font-size: 0.95rem;
         padding: 0.5rem 0.8rem;
@@ -246,82 +247,86 @@ a{
 }
 
 .loadingImage {
-  opacity: 0.7;
-  animation: pulse 1.5s infinite;
+    opacity: 0.7;
+    animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-  0% {
-    opacity: 0.7;
-  }
-  50% {
-    opacity: 0.4;
-  }
-  100% {
-    opacity: 0.7;
-  }
+    0% {
+        opacity: 0.7;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+
+    100% {
+        opacity: 0.7;
+    }
 }
 
 .profileImageContainer {
-  position: relative;
-  display: inline-block;
-  border-radius: 50%;
-  overflow: hidden;
+    position: relative;
+    display: inline-block;
+    border-radius: 50%;
+    overflow: hidden;
 }
 
 .profileImageContainer img {
-  transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease;
 }
 
 .imageEditButton {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  background-color: var(--fourth_color);
-  border: 2px solid var(--body_background);
-  border-radius: 50%;
-  width: 1.25rem;
-  height: 1.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  padding: 0;
-  opacity: 0.9;
-  z-index: 10;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background-color: var(--fourth_color);
+    border: 2px solid var(--body_background);
+    border-radius: 50%;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0;
+    opacity: 0.9;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .imageEditButton:hover {
-  opacity: 1;
-  transform: scale(1.1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    opacity: 1;
+    transform: scale(1.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .imageEditButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
-  transform: none;
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none;
 }
 
-.editIcon, .uploadIcon {
-  color: var(--body_background);
-  font-size: 0.625rem;
-  transition: transform 0.2s ease;
+.editIcon,
+.uploadIcon {
+    color: var(--body_background);
+    font-size: 0.625rem;
+    transition: transform 0.2s ease;
 }
 
 .spinningIcon {
-  color: var(--body_background);
-  font-size: 0.625rem;
-  animation: spin 1s linear infinite;
+    color: var(--body_background);
+    font-size: 0.625rem;
+    animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }

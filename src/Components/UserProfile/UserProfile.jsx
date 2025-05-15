@@ -3,10 +3,10 @@ import styles from './UserProfile.module.css';
 import { UserContext } from '../../Context/UserContext';
 import { Helmet } from 'react-helmet';
 import axios from 'axios';
-import { FaEdit, FaCamera, FaPen, FaSpinner, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaEdit, FaCamera, FaPen, FaSpinner, FaCheck, FaTimes, FaTrash } from 'react-icons/fa';
 import { GlobalContext } from '../../Context/GlobalContext';
 import { useProfile } from '../../Context/ProfileContext';
-
+import { useNavigate } from "react-router-dom";
 const DEFAULT_AVATAR = `https://ui-avatars.com/api/?name=User&background=${encodeURIComponent(getComputedStyle(document.documentElement).getPropertyValue('black'))}&color=FFFFFF&size=256`;
 
 function maskEmail(email) {
@@ -39,6 +39,12 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
     const [showScanHistory, setShowScanHistory] = useState(false);
     const [expandedCard, setExpandedCard] = useState(null);
     const [modalContent, setModalContent] = useState(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [errorPopup, setErrorPopup] = useState('');
+    let navigate = useNavigate();
+    const { setUser } = useContext(UserContext);
+    const { user } = useContext(UserContext);
 
     const resetProfileState = useCallback(() => {
         setProfileData(null);
@@ -58,7 +64,7 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
         try {
             setLoading(true);
             resetProfileState();
-            const fetchedUserProfile = await axios.get(`http://localhost:3000/user/getProfile`, { 
+            const fetchedUserProfile = await axios.get(`http://localhost:3000/user/getProfile`, {
                 headers,
                 validateStatus: (status) => status < 500
             });
@@ -178,7 +184,7 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                 });
             }
             if (response.data?.success) {
-                const updatedProfile = await axios.get(`http://localhost:3000/user/getProfile`, { 
+                const updatedProfile = await axios.get(`http://localhost:3000/user/getProfile`, {
                     headers,
                     validateStatus: (status) => status < 500
                 });
@@ -223,6 +229,21 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
         }
     };
 
+    // Delete Account Handler
+    const handleDeleteAccount = async () => {
+        setDeleteLoading(true);
+        const response = await axios.delete('http://localhost:3000/user/deleteAccount', {
+            headers: { ...headers, Authorization: `Bearer ${userToken}` },
+        });
+        if (response.data?.success) {
+            setUser(null);
+            setProfileDataContext(null);
+            navigate('/home');
+        } else {
+            setErrorPopup('Failed to delete account. Please try again.');
+        }
+    };
+
     return (
         <div className={styles.profilePageBg}>
             <div className={styles.animatedBg} />
@@ -233,76 +254,86 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                 ) : profileData ? (
                     <>
                         <div className={styles.profileHeader}>
-                            <div className={styles.profilePicWrapper}>
-                                <img
-                                    src={photoPreview || photo || DEFAULT_AVATAR}
-                                    alt="Profile"
-                                    className={`${styles.profilePic} ${photoSaving ? styles.uploading : ''}`}
-                                />
-                                <button
-                                    onClick={handlePhotoClick}
-                                    className={`${styles.editPicBtn} ${photoSaving ? styles.uploading : ''}`}
-                                    disabled={photoSaving}
-                                    title={photo ? "Change profile picture" : "Upload profile picture"}
-                                >
-                                    {photoSaving ? (
-                                        <FaSpinner className={styles.spinningIcon} />
-                                    ) : photo ? (
-                                        <FaPen />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '3rem', flex: 1 }}>
+                                <div className={styles.profilePicWrapper}>
+                                    <img
+                                        src={photoPreview || photo || DEFAULT_AVATAR}
+                                        alt="Profile"
+                                        className={`${styles.profilePic} ${photoSaving ? styles.uploading : ''}`}
+                                    />
+                                    <button
+                                        onClick={handlePhotoClick}
+                                        className={`${styles.editPicBtn} ${photoSaving ? styles.uploading : ''}`}
+                                        disabled={photoSaving}
+                                        title={photo ? "Change profile picture" : "Upload profile picture"}
+                                    >
+                                        {photoSaving ? (
+                                            <FaSpinner className={styles.spinningIcon} />
+                                        ) : photo ? (
+                                            <FaPen />
+                                        ) : (
+                                            <FaCamera />
+                                        )}
+                                    </button>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handlePhotoChange}
+                                        style={{ display: 'none' }}
+                                        disabled={photoSaving}
+                                    />
+                                </div>
+                                <div className={styles.userInfo}>
+                                    {isEditingName ? (
+                                        <div className={styles.animatedNameInputWrapper} ref={nameInputWrapperRef}>
+                                            <input
+                                                type="text"
+                                                value={tempName}
+                                                onChange={e => setTempName(e.target.value)}
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') handleNameSave();
+                                                    if (e.key === 'Escape') setIsEditingName(false);
+                                                }}
+                                                autoFocus
+                                                className={styles.animatedNameInput}
+                                                placeholder="Enter your new name..."
+                                                disabled={nameSaving}
+                                            />
+                                            <button
+                                                className={styles.saveNameBtn}
+                                                onClick={handleNameSave}
+                                                disabled={nameSaving || !tempName.trim() || tempName === profileData?.userName}
+                                                title="Save name"
+                                                type="button"
+                                            >
+                                                {nameSaving ? <FaSpinner className={styles.spinningIcon} /> : <FaCheck />}
+                                            </button>
+                                        </div>
                                     ) : (
-                                        <FaCamera />
+                                        <div className={styles.userName}>
+                                            {profileData?.userName}
+                                            <button className={styles.editNameBtn} onClick={handleNameEdit} title="Edit name">
+                                                <FaEdit />
+                                            </button>
+                                        </div>
                                     )}
-                                </button>
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={handlePhotoChange}
-                                    style={{ display: 'none' }}
-                                    disabled={photoSaving}
-                                />
-                            </div>
-                            <div className={styles.userInfo}>
-                                {isEditingName ? (
-                                    <div className={styles.animatedNameInputWrapper} ref={nameInputWrapperRef}>
-                                        <input
-                                            type="text"
-                                            value={tempName}
-                                            onChange={e => setTempName(e.target.value)}
-                                            onKeyDown={e => {
-                                                if (e.key === 'Enter') handleNameSave();
-                                                if (e.key === 'Escape') setIsEditingName(false);
-                                            }}
-                                            autoFocus
-                                            className={styles.animatedNameInput}
-                                            placeholder="Enter your new name..."
-                                            disabled={nameSaving}
-                                        />
-                                        <button
-                                            className={styles.saveNameBtn}
-                                            onClick={handleNameSave}
-                                            disabled={nameSaving || !tempName.trim() || tempName === profileData?.userName}
-                                            title="Save name"
-                                            type="button"
-                                        >
-                                            {nameSaving ? <FaSpinner className={styles.spinningIcon} /> : <FaCheck />}
-                                        </button>
+                                    <div className={styles.userEmail}>
+                                        {maskEmail(profileData?.email)}
                                     </div>
-                                ) : (
-                                    <div className={styles.userName}>
-                                        {profileData?.userName}
-                                        <button className={styles.editNameBtn} onClick={handleNameEdit} title="Edit name">
-                                            <FaEdit />
-                                        </button>
+                                    <div className={styles.creationDate}>
+                                        Member since: {new Date(profileData?.createdAt).toLocaleDateString()}
                                     </div>
-                                )}
-                                <div className={styles.userEmail}>
-                                    {maskEmail(profileData?.email)}
-                                </div>
-                                <div className={styles.creationDate}>
-                                    Member since: {new Date(profileData?.createdAt).toLocaleDateString()}
                                 </div>
                             </div>
+                            <button
+                                className={styles.deleteAccountBtn}
+                                onClick={() => setShowDeleteModal(true)}
+                                disabled={deleteLoading}
+                                title="Delete Account"
+                            >
+                                {deleteLoading ? <FaSpinner className={styles.spinningIcon} /> : <><FaTrash style={{ marginRight: 8 }} />Delete Account</>}
+                            </button>
                         </div>
                         <div className={styles.scanHistorySection}>
                             <h3 className={styles.historyTitle}>Scan History</h3>
@@ -382,6 +413,43 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                                 </div>
                             )}
                         </div>
+                        {showDeleteModal && (
+                            <div className={styles.deleteModalBackdrop} onClick={() => setShowDeleteModal(false)}>
+                                <div className={styles.deleteModal} onClick={e => e.stopPropagation()}>
+                                    <div className={styles.deleteModalIcon}>⚠️</div>
+                                    <h2 className={styles.deleteModalTitle}>Are you sure?</h2>
+                                    <p className={styles.deleteModalText}>
+                                        This action <b>cannot be undone</b>.<br />
+                                        Your account and all data will be <span style={{ color: '#e53935' }}>permanently deleted</span>.
+                                    </p>
+                                    <div className={styles.deleteModalActions}>
+                                        <button
+                                            className={styles.deleteModalCancel}
+                                            onClick={() => setShowDeleteModal(false)}
+                                            disabled={deleteLoading}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            className={styles.deleteModalConfirm}
+                                            onClick={handleDeleteAccount}
+                                            disabled={deleteLoading}
+                                        >
+                                            {deleteLoading ? <FaSpinner className={styles.spinningIcon} /> : 'Yes, Delete!'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {errorPopup && (
+                            <div className={styles.errorPopupBackdrop} onClick={() => setErrorPopup('')}>
+                                <div className={styles.errorPopup} onClick={e => e.stopPropagation()}>
+                                    <span className={styles.errorPopupIcon}>❌</span>
+                                    <span className={styles.errorPopupText}>{errorPopup}</span>
+                                    <button className={styles.errorPopupClose} onClick={() => setErrorPopup('')}>&times;</button>
+                                </div>
+                            </div>
+                        )}
                     </>
                 ) : (
                     <div className={styles.errorMessage}>No profile data available</div>
