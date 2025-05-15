@@ -3,15 +3,18 @@ import style from "./Navbar.module.css";
 import { Link, useLocation } from "react-router-dom";
 import "../../assets/GlobalStyle.css";
 import ThemeMode from "../ThemeMode/ThemeMode";
-import { useContext, useState, useRef, useEffect } from "react";
+import { useContext, useState, useRef, useEffect, useCallback } from "react";
 import { UserContext } from "../../Context/UserContext.jsx";
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { GlobalContext } from "../../Context/GlobalContext.jsx";
+import { useProfile } from '../../Context/ProfileContext';
 
 // const navigation = [
 //   { name: "Home", href: "/", current: false }
 // ];
+
+const DEFAULT_AVATAR = `https://ui-avatars.com/api/?name=User&background=${encodeURIComponent(getComputedStyle(document.documentElement).getPropertyValue('black'))}&color=FFFFFF&size=256`;
 
 function classNames(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -24,21 +27,43 @@ export default function Navbar() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const [chatInput, setChatInput] = useState("");
-  const [profilePhoto, setProfilePhoto] = useState('');
+  const { profileData } = useProfile();
+  const profilePhoto = profileData?.userImg?.secure_url || DEFAULT_AVATAR;
+  const [loading, setLoading] = useState(false);
+
+  const getUserProfile = useCallback(async () => {
+    if (!userToken || !headers) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await axios.get(`http://localhost:3000/user/getProfile`, { 
+        headers,
+        validateStatus: (status) => status < 500
+      });
+
+      if (response.data?.success) {
+        // This block is now empty as the profile data is handled by useProfile
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [headers, userToken]);
+
+  // Fetch profile when userToken or headers change
+  useEffect(() => {
+    getUserProfile();
+  }, [getUserProfile]);
 
   const logOut = () => {
     localStorage.removeItem('userToken');
     setUserToken(null);
-    navigate('/home');
+    setIsProfileMenuOpen(false);
+    navigate('/home', { replace: true });
   };
-  // const getUserProfilePic = async () => {
-  //   const fetchedUserProfilePic = await axios.get(`http://localhost:3000/user/getProfile`, { headers });
-  //   if (fetchedUserProfilePic.data?.success) {
-  //     setProfilePhoto(fetchedUserProfilePic.data?.data?.userImg?.secure_url)
-  //   }
-  // }
-
-
 
   const handleChatInputKeyDown = (e) => {
     if (e.key === "Enter" && chatInput.trim() !== "") {
@@ -59,10 +84,6 @@ export default function Navbar() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
-  // useEffect(() => {
-  //   getUserProfilePic();
-  // }, []);
 
   return (
     <section as="nav" className={style.navBarStyle}>
@@ -117,9 +138,9 @@ export default function Navbar() {
                 <span className="absolute -inset-1.5" />
                 <span className="sr-only">Open user menu</span>
                 <img
-                  alt=""
-                  src={profilePhoto || `https://ui-avatars.com/api/?name=User&background=${encodeURIComponent(getComputedStyle(document.documentElement).getPropertyValue('black'))}&color=FFFFFF&size=256`}
-                  className="size-8 rounded-full"
+                  alt="Profile"
+                  src={profilePhoto}
+                  className={`size-8 rounded-full ${loading ? style.loadingImage : ''}`}
                 />
               </button>
               {isProfileMenuOpen && (

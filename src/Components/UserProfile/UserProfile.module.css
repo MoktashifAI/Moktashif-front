@@ -80,44 +80,71 @@
   position: relative;
   width: 150px;
   height: 150px;
+  margin: 0 auto;
   border-radius: 50%;
-  transition: transform 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.profilePicWrapper:hover {
-  transform: scale(1.05);
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .profilePic {
   width: 100%;
   height: 100%;
-  border-radius: 50%;
   object-fit: cover;
-  border: 3px solid var(--form_color);
-  transition: all 0.3s ease;
+  transition: opacity 0.3s ease;
+}
+
+.profilePic.uploading {
+  opacity: 0.7;
 }
 
 .editPicBtn {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  background: var(--form_color);
-  color: white;
-  width: 36px;
-  height: 36px;
+  bottom: 10px;
+  right: 10px;
+  background-color: var(--fourth_color);
+  border: 2px solid var(--body_background);
   border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  padding: 0;
+  opacity: 0.9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .editPicBtn:hover {
+  opacity: 1;
   transform: scale(1.1);
-  background: var(--fourth_color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.editPicBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+}
+
+.editPicBtn svg {
+  color: var(--body_background);
+  font-size: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.spinningIcon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .userInfo {
@@ -391,4 +418,235 @@
   color: var(--text_color);
   margin-bottom: 0.5rem;
   transition: var(--theme_transition);
+}
+
+.animatedNameInputWrapper {
+  position: relative;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.animatedNameInput {
+  width: 100%;
+  font-size: 2.2rem;
+  font-weight: 600;
+  color: var(--text_color);
+  background: var(--feature_cards_color);
+  border: 2px solid var(--form_color);
+  border-radius: 16px;
+  padding: 0.75rem 2.5rem 0.75rem 1.5rem;
+  outline: none;
+  box-shadow: 0 4px 24px rgba(var(--form_color_rgb), 0.10), 0 1.5px 8px rgba(0,0,0,0.08);
+  transition: border-color 0.3s, box-shadow 0.3s, background 0.3s, color 0.3s;
+  animation: popIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animatedNameInput:focus {
+  border-color: var(--fourth_color);
+  background: var(--navbar_background);
+  color: var(--fourth_color);
+  box-shadow: 0 8px 32px rgba(var(--fourth_color_rgb), 0.15), 0 2px 8px rgba(0,0,0,0.10);
+}
+
+.animatedNameInput::placeholder {
+  color: var(--form_color);
+  opacity: 0.6;
+  font-style: italic;
+  letter-spacing: 1px;
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.saveNameBtn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: linear-gradient(135deg, var(--form_color) 0%, var(--fourth_color) 100%);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 2.2rem;
+  height: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(var(--form_color_rgb), 0.15);
+  transition: background 0.3s, transform 0.2s;
+  z-index: 2;
+}
+.saveNameBtn:hover {
+  background: linear-gradient(135deg, var(--fourth_color) 0%, var(--form_color) 100%);
+  transform: translateY(-50%) scale(1.1) rotate(-8deg);
+}
+
+.scanHistoryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.scanCard {
+  background: var(--feature_cards_color);
+  border-radius: 18px;
+  box-shadow: 0 4px 24px rgba(var(--form_color_rgb), 0.10), 0 1.5px 8px rgba(0,0,0,0.08);
+  padding: 1.5rem 1.2rem;
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1), box-shadow 0.25s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  border: 2px solid transparent;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  animation: popIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scanNumber {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--fourth_color);
+  opacity: 0.8;
+  background: var(--navbar_background);
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.scanCard:hover {
+  transform: translateY(-8px) scale(1.03) rotate(-1deg);
+  box-shadow: 0 8px 32px rgba(var(--fourth_color_rgb), 0.18), 0 2px 8px rgba(0,0,0,0.10);
+  border-color: var(--fourth_color);
+}
+.scanCardHeader {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--fourth_color);
+  margin-bottom: 0.5rem;
+  letter-spacing: 1px;
+}
+.scanCardDate {
+  font-size: 1rem;
+  color: var(--text_color);
+  opacity: 0.8;
+  margin-bottom: 0.5rem;
+}
+.vulnList {
+  width: 100%;
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+.vulnItem {
+  background: var(--navbar_background);
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 2px 8px rgba(var(--form_color_rgb), 0.08);
+  transition: box-shadow 0.2s;
+  position: relative;
+}
+.vulnItemRow {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+.vulnLabel {
+  font-weight: 600;
+  color: var(--form_color);
+  min-width: 90px;
+}
+.vulnValue {
+  color: var(--text_color);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.vulnValue:hover {
+  color: var(--fourth_color);
+  text-decoration: underline;
+}
+.vulnSeverity {
+  font-weight: 700;
+  color: var(--fourth_color);
+  margin-left: 0.5rem;
+}
+.vulnLearnMore {
+  color: var(--fourth_color);
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: 0.5rem;
+  font-size: 0.98rem;
+}
+/* Modal styles */
+.vulnModalBackdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s;
+}
+.vulnModal {
+  background: var(--navbar_background);
+  color: var(--text_color);
+  border-radius: 18px;
+  padding: 2rem 2.5rem;
+  min-width: 320px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(var(--fourth_color_rgb), 0.18), 0 2px 8px rgba(0,0,0,0.10);
+  animation: popIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.vulnModalClose {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: var(--fourth_color);
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.vulnModalClose:hover {
+  color: var(--form_color);
+}
+@media (max-width: 1100px) {
+  .scanHistoryGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .scanHistoryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

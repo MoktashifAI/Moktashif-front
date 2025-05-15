@@ -201,7 +201,7 @@ a{
     border: none;
     border-radius: 0.5rem;
     padding: 0.4rem 1.2rem;
-    font-size: 20px;
+    font-size: 1rem;
     font-weight: 500;
     outline: none;
     box-shadow: 0 2px 8px rgba(0,0,0,0.10);
@@ -243,4 +243,85 @@ a{
         font-size: 0.95rem;
         padding: 0.5rem 0.8rem;
     }
+}
+
+.loadingImage {
+  opacity: 0.7;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0.7;
+  }
+}
+
+.profileImageContainer {
+  position: relative;
+  display: inline-block;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.profileImageContainer img {
+  transition: opacity 0.2s ease;
+}
+
+.imageEditButton {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background-color: var(--fourth_color);
+  border: 2px solid var(--body_background);
+  border-radius: 50%;
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  opacity: 0.9;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.imageEditButton:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.imageEditButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+}
+
+.editIcon, .uploadIcon {
+  color: var(--body_background);
+  font-size: 0.625rem;
+  transition: transform 0.2s ease;
+}
+
+.spinningIcon {
+  color: var(--body_background);
+  font-size: 0.625rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
