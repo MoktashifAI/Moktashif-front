@@ -34,17 +34,23 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
     const { setProfileData: setProfileDataContext } = useProfile();
     const [nameSaving, setNameSaving] = useState(false);
     const nameInputWrapperRef = useRef(null);
-    const [scanHistory, setScanHistory] = useState([]);
+    const [scanHistory, setScanHistory] = useState(() => {
+        const savedHistory = localStorage.getItem('scanHistory');
+        return savedHistory ? JSON.parse(savedHistory) : [];
+    });
     const [scanLoading, setScanLoading] = useState(false);
-    const [showScanHistory, setShowScanHistory] = useState(false);
+    const [showScanHistory, setShowScanHistory] = useState(() => {
+        return localStorage.getItem('showScanHistory') === 'true';
+    });
     const [expandedCard, setExpandedCard] = useState(null);
     const [modalContent, setModalContent] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [errorPopup, setErrorPopup] = useState('');
+    const [nameError, setNameError] = useState('');
+    const [nameErrorPopup, setNameErrorPopup] = useState('');
     let navigate = useNavigate();
-    const { setUser } = useContext(UserContext);
-    const { user } = useContext(UserContext);
+    const { setUserToken } = useContext(UserContext);
 
     const resetProfileState = useCallback(() => {
         setProfileData(null);
@@ -81,6 +87,7 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
             }
         } catch (error) {
             console.error('Error fetching profile:', error);
+            console.error(error?.response?.data?.errMsg);
             resetProfileState();
         } finally {
             setLoading(false);
@@ -125,26 +132,32 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
     const handleNameSave = async () => {
         if (!tempName.trim() || tempName === profileData?.userName) {
             setIsEditingName(false);
+            setNameErrorPopup('');
             return;
         }
         setNameSaving(true);
+        setNameErrorPopup('');
         try {
             const response = await axios.put('http://localhost:3000/user/updateUserProfile', {
                 userName: tempName.trim()
             }, { headers });
-            console.log('PUT /user/updateUserProfile response:', response);
             if (response.data?.success) {
                 const updatedProfile = await axios.get('http://localhost:3000/user/getProfile', { headers });
-                console.log('GET /user/getProfile response:', updatedProfile);
                 if (updatedProfile.data?.success) {
                     const newProfileData = updatedProfile.data?.data;
                     setProfileDataContext(newProfileData);
                     setProfileData(newProfileData);
                     onProfileUpdate?.(newProfileData);
                 }
+                setNameErrorPopup('');
             }
         } catch (error) {
-            console.error('Error updating user name:', error?.response?.data?.errors?.[0] || error);
+            if (error?.response?.data?.err_msg === 'validation error') {
+                setNameErrorPopup('The user name should be at least 3 characters long and only contain alphabets, numbers, and spaces.');
+            } else {
+                const apiError = error?.response?.data?.errors?.[0] || error?.response?.data?.message || 'Failed to update name.';
+                setNameErrorPopup(apiError);
+            }
         } finally {
             setNameSaving(false);
             setIsEditingName(false);
@@ -218,29 +231,67 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                 headers: { ...headers, Authorization: `Bearer ${userToken}` },
             });
             if (response.data?.success) {
-                setScanHistory(response.data.data || []);
+                const historyData = response.data.data || [];
+                setScanHistory(historyData);
+                localStorage.setItem('scanHistory', JSON.stringify(historyData));
                 setShowScanHistory(true);
+                localStorage.setItem('showScanHistory', 'true');
             }
         } catch (error) {
             setScanHistory([]);
             setShowScanHistory(true);
+            localStorage.setItem('showScanHistory', 'true');
         } finally {
             setScanLoading(false);
         }
     };
 
+    const handleCloseScanHistory = () => {
+        setShowScanHistory(false);
+        localStorage.setItem('showScanHistory', 'false');
+    };
+
     // Delete Account Handler
     const handleDeleteAccount = async () => {
         setDeleteLoading(true);
-        const response = await axios.delete('http://localhost:3000/user/deleteAccount', {
-            headers: { ...headers, Authorization: `Bearer ${userToken}` },
-        });
-        if (response.data?.success) {
-            setUser(null);
-            setProfileDataContext(null);
-            navigate('/home');
-        } else {
+        try {
+            const response = await axios.delete('http://localhost:3000/user/deleteAccount', {
+                headers: { ...headers, Authorization: `Bearer ${userToken}` },
+            });
+            if (response.data?.success) {
+                localStorage.removeItem('userToken');
+                setUserToken(null);
+                setProfileDataContext(null);
+                navigate('/home');
+            } else {
+                setErrorPopup('Failed to delete account. Please try again.');
+            }
+        } catch (error) {
             setErrorPopup('Failed to delete account. Please try again.');
+        } finally {
+            setDeleteLoading(false);
+        }
+    };
+
+    const handleDeleteImage = async () => {
+        if (!photo) return;
+        setPhotoSaving(true);
+        try {
+            await axios.delete('http://localhost:3000/user/deleteImg', {
+                headers: { ...headers, Authorization: `Bearer ${userToken}` },
+            });
+            setPhoto('');
+            setPublicId('');
+            setProfileData(prev => {
+                const updated = prev ? { ...prev, userImg: null } : prev;
+                setProfileDataContext(updated);
+                onProfileUpdate?.(updated);
+                return updated;
+            });
+        } catch (error) {
+            setErrorPopup('Failed to delete profile image. Please try again.');
+        } finally {
+            setPhotoSaving(false);
         }
     };
 
@@ -275,6 +326,17 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                                             <FaCamera />
                                         )}
                                     </button>
+                                    {photo && (
+                                        <button
+                                            onClick={handleDeleteImage}
+                                            className={styles.deletePicBtn}
+                                            disabled={photoSaving}
+                                            title="Delete profile picture"
+                                            type="button"
+                                        >
+                                            <FaTrash />
+                                        </button>
+                                    )}
                                     <input
                                         ref={fileInputRef}
                                         type="file"
@@ -336,10 +398,18 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                             </button>
                         </div>
                         <div className={styles.scanHistorySection}>
-                            <h3 className={styles.historyTitle}>Scan History</h3>
-                            <button className={styles.historyBtn} onClick={fetchScanHistory} disabled={scanLoading}>
-                                {scanLoading ? 'Loading...' : 'Review Scan History'}
-                            </button>
+                            <div className={styles.scanHistoryHeader}>
+                                <h3 className={styles.historyTitle}>Scan History</h3>
+                                {!showScanHistory ? (
+                                    <button className={styles.historyBtn} onClick={fetchScanHistory} disabled={scanLoading}>
+                                        {scanLoading ? 'Loading...' : 'Review Scan History'}
+                                    </button>
+                                ) : (
+                                    <button className={styles.closeHistoryBtn} onClick={handleCloseScanHistory} title="Close Scan History">
+                                        <FaTimes />
+                                    </button>
+                                )}
+                            </div>
                             {showScanHistory && (
                                 <div className={styles.scanHistoryGrid}>
                                     {scanHistory.length === 0 && !scanLoading && (
@@ -349,10 +419,9 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                                     )}
                                     {scanHistory.map((scan, idx) => (
                                         <div
-                                            className={styles.scanCard}
+                                            className={`${styles.scanCard} ${expandedCard === idx ? styles.expandedCard : ''}`}
                                             key={scan._id || idx}
                                             onClick={() => setExpandedCard(expandedCard === idx ? null : idx)}
-                                            style={{ boxShadow: expandedCard === idx ? '0 8px 32px rgba(var(--fourth_color_rgb), 0.18)' : undefined }}
                                         >
                                             <div className={styles.scanCardHeader}>Scan #{scanHistory.length - idx}</div>
                                             <div className={styles.scanCardDate}>{new Date(scan.createdAt).toLocaleString()}</div>
@@ -450,6 +519,16 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                                 </div>
                             </div>
                         )}
+                        {/* Username error popup */}
+                        {nameErrorPopup && (
+                            <div className={styles.errorPopupBackdrop} onClick={() => setNameErrorPopup('')}>
+                                <div className={styles.errorPopup} onClick={e => e.stopPropagation()}>
+                                    <span className={styles.errorPopupIcon}>❌</span>
+                                    <span className={styles.errorPopupText}>{nameErrorPopup}</span>
+                                    <button className={styles.errorPopupClose} onClick={() => setNameErrorPopup('')}>&times;</button>
+                                </div>
+                            </div>
+                        )}
                     </>
                 ) : (
                     <div className={styles.errorMessage}>No profile data available</div>
@@ -462,22 +541,10 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
 export default function UserProfile() {
     const { headers } = useContext(GlobalContext);
     const { userToken } = useContext(UserContext);
-    const [profileKey, setProfileKey] = useState(0);
-
-    useEffect(() => {
-        setProfileKey(prev => prev + 1);
-    }, [userToken, headers]);
-
-    const handleProfileUpdate = useCallback((newProfileData) => {
-        // This will be called after successful profile updates
-    }, []);
-
     return (
         <UserProfileContent
-            key={profileKey}
             userToken={userToken}
             headers={headers}
-            onProfileUpdate={handleProfileUpdate}
         />
     );
 }

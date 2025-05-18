@@ -122,14 +122,14 @@ a {
     border-top: 1px solid var(--border_color);
 }
 
-.mobileMenuItem {
+/* .mobileMenuItem {
     display: block;
     padding: 0.75rem 1rem;
     color: var(--fifth_color);
     text-decoration: none;
     border-radius: 0.375rem;
     transition: all 0.3s ease;
-}
+} */
 
 .mobileMenuItem:hover {
     background-color: var(--hover_background);

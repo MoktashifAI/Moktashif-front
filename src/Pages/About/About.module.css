@@ -79,11 +79,15 @@
     100% { text-shadow: 0 0 40px var(--form_color), 0 0 16px var(--fourth_color); }
 }
 
+.scanIcon, .shieldAnim, .stepIcon, .featureIcon {
+    color: var(--form_color) !important;
+    filter: drop-shadow(0 0 8px var(--form_color)88);
+    transition: color 0.3s, filter 0.3s;
+}
+
 .scanIcon {
     font-size: 2.2rem;
     animation: scanBounce 1.5s infinite alternate;
-    color: var(--form_color);
-    transition: var(--theme_transition);
 }
 
 @keyframes scanBounce {
@@ -149,19 +153,6 @@
     100% { box-shadow: 0 0 0 0 var(--form_color)00; }
 }
 
-.shieldAnim {
-    font-size: 2.2rem;
-    filter: drop-shadow(0 0 8px var(--form_color)88);
-    animation: shieldFloat 2.5s infinite alternate;
-    color: var(--form_color);
-    transition: var(--theme_transition);
-}
-
-@keyframes shieldFloat {
-    0% { transform: translateY(0) scale(1); }
-    100% { transform: translateY(-10px) scale(1.08); }
-}
-
 .section {
     margin-bottom: 3rem;
     padding: 2rem 1.5rem;
@@ -208,10 +199,6 @@
 .stepIcon {
     font-size: 2.2rem;
     margin-bottom: 0.7rem;
-    filter: drop-shadow(0 0 8px var(--form_color)88);
-    animation: shieldFloat 2.5s infinite alternate;
-    color: var(--form_color);
-    transition: var(--theme_transition);
 }
 
 .featuresList {
@@ -235,9 +222,6 @@
     position: absolute;
     left: 0;
     font-size: 1.5rem;
-    color: var(--form_color);
-    filter: drop-shadow(0 0 8px var(--form_color)88);
-    transition: var(--theme_transition);
 }
 
 .ctaWrapper {

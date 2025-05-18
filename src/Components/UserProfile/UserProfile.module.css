@@ -176,19 +176,41 @@
 
 .scanHistorySection {
   margin-top: 2.5rem;
-  /* Increased from 2rem */
   padding: 2rem;
-  /* Increased from 1.5rem */
   background: var(--feature_cards_color);
   border-radius: 20px;
-  /* Increased from 16px */
   transition: all 0.3s ease;
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.scanHistorySection:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+.scanHistoryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.closeHistoryBtn {
+  background: transparent;
+  border: none;
+  color: var(--text_color);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1.2rem;
+  opacity: 0.7;
+}
+
+.closeHistoryBtn:hover {
+  background: rgba(var(--form_color_rgb), 0.1);
+  color: var(--fourth_color);
+  opacity: 1;
+  transform: rotate(90deg);
 }
 
 .historyTitle {
@@ -210,6 +232,9 @@
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  opacity: 1;
+  transform: scale(1);
+  animation: fadeScaleIn 0.5s cubic-bezier(0.4,0,0.2,1);
 }
 
 .historyBtn::before {
@@ -228,6 +253,17 @@
 
 .historyBtn:hover::before {
   left: 100%;
+}
+
+@keyframes fadeScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @media (max-width: 768px) {
@@ -515,6 +551,17 @@
   animation: popIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.scanCard:not(.expandedCard):hover {
+  transform: translateY(-8px) scale(1.03) rotate(-1deg);
+  box-shadow: 0 8px 32px rgba(var(--fourth_color_rgb), 0.18), 0 2px 8px rgba(0,0,0,0.10);
+  border-color: var(--fourth_color);
+}
+
+.expandedCard {
+  border-color: var(--fourth_color);
+  box-shadow: 0 8px 32px rgba(var(--fourth_color_rgb), 0.18);
+}
+
 .scanNumber {
   position: absolute;
   top: 0.5rem;
@@ -529,11 +576,6 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.scanCard:hover {
-  transform: translateY(-8px) scale(1.03) rotate(-1deg);
-  box-shadow: 0 8px 32px rgba(var(--fourth_color_rgb), 0.18), 0 2px 8px rgba(0,0,0,0.10);
-  border-color: var(--fourth_color);
-}
 .scanCardHeader {
   font-size: 1.1rem;
   font-weight: 600;
@@ -541,12 +583,14 @@
   margin-bottom: 0.5rem;
   letter-spacing: 1px;
 }
+
 .scanCardDate {
   font-size: 1rem;
   color: var(--text_color);
   opacity: 0.8;
   margin-bottom: 0.5rem;
 }
+
 .vulnList {
   width: 100%;
   margin-top: 1rem;
@@ -554,6 +598,7 @@
   flex-direction: column;
   gap: 1.2rem;
 }
+
 .vulnItem {
   background: var(--navbar_background);
   border-radius: 12px;
@@ -562,17 +607,20 @@
   transition: box-shadow 0.2s;
   position: relative;
 }
+
 .vulnItemRow {
   display: flex;
   align-items: center;
   gap: 1.2rem;
   margin-bottom: 0.5rem;
 }
+
 .vulnLabel {
   font-weight: 600;
   color: var(--form_color);
   min-width: 90px;
 }
+
 .vulnValue {
   color: var(--text_color);
   flex: 1;
@@ -582,15 +630,18 @@
   cursor: pointer;
   transition: color 0.2s;
 }
+
 .vulnValue:hover {
   color: var(--fourth_color);
   text-decoration: underline;
 }
+
 .vulnSeverity {
   font-weight: 700;
   color: var(--fourth_color);
   margin-left: 0.5rem;
 }
+
 .vulnLearnMore {
   color: var(--fourth_color);
   text-decoration: underline;
@@ -598,30 +649,38 @@
   margin-left: 0.5rem;
   font-size: 0.98rem;
 }
+
 /* Modal styles */
 .vulnModalBackdrop {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.45);
-  z-index: 1000;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
   animation: fadeIn 0.3s;
+  backdrop-filter: blur(4px);
 }
+
 .vulnModal {
   background: var(--navbar_background);
   color: var(--text_color);
   border-radius: 18px;
-  padding: 2rem 2.5rem;
-  min-width: 320px;
-  max-width: 90vw;
+  padding: 2.5rem 3rem;
+  width: 90%;
+  max-width: 600px;
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 8px 32px rgba(var(--fourth_color_rgb), 0.18), 0 2px 8px rgba(0,0,0,0.10);
   animation: popIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  margin: 2rem;
 }
+
 .vulnModalClose {
   position: absolute;
   top: 1rem;
@@ -633,19 +692,113 @@
   cursor: pointer;
   transition: color 0.2s;
 }
+
 .vulnModalClose:hover {
   color: var(--form_color);
 }
+
 @media (max-width: 1100px) {
   .scanHistoryGrid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
-@media (max-width: 700px) {
-  .scanHistoryGrid {
-    grid-template-columns: 1fr;
+
+@media (max-width: 900px) {
+  .scanHistorySection {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+  .scanHistoryHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
 }
+
+@media (max-width: 700px) {
+  .profilePageBg {
+    min-height: 100vh;
+    width: 100vw;
+    max-width: 100vw;
+    min-width: 0;
+    padding: 0;
+    display: block;
+    align-items: unset;
+    justify-content: unset;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+  .profileContainer {
+    width: 100vw;
+    min-width: 0;
+    max-width: 100vw;
+    padding: 0.5rem 0;
+    border-radius: 0;
+    box-sizing: border-box;
+    margin: 0;
+    left: 0;
+    right: 0;
+  }
+  .scanHistorySection {
+    width: 100vw;
+    max-width: 100vw;
+    min-width: 0;
+    padding: 0.5rem 0;
+    border-radius: 0;
+    margin: 0;
+    box-sizing: border-box;
+  }
+  .scanHistoryGrid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    width: 100vw;
+    max-width: 100vw;
+    margin: 0;
+    box-sizing: border-box;
+  }
+  .scanCard {
+    width: 98vw;
+    max-width: 98vw;
+    min-width: 0;
+    padding: 1rem 0.5rem;
+    word-break: break-word;
+    font-size: 0.98rem;
+    box-sizing: border-box;
+  }
+  .vulnItem {
+    padding: 0.7rem 0.5rem;
+    font-size: 0.95rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .vulnItemRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    width: 100%;
+  }
+  .vulnLabel {
+    min-width: unset;
+    font-size: 0.98rem;
+    width: 100%;
+  }
+  .vulnValue {
+    width: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  .vulnModal {
+    padding: 1.2rem 0.7rem;
+    min-width: 0;
+    width: 98vw;
+    max-width: 98vw;
+    left: 0;
+    margin: 0;
+    border-radius: 0;
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -850,4 +1003,58 @@
 
 .errorPopupClose:hover {
   color: #b71c1c;
+}
+
+.deletePicBtn {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background-color: #e53935;
+  border: 2px solid var(--body_background);
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  opacity: 0.9;
+  box-shadow: 0 2px 4px rgba(229, 57, 53, 0.12);
+  z-index: 2;
+}
+.deletePicBtn:hover {
+  opacity: 1;
+  background-color: #b71c1c;
+  transform: scale(1.1) rotate(-8deg);
+}
+.deletePicBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+}
+.deletePicBtn svg {
+  color: #fff;
+  font-size: 1rem;
+  transition: transform 0.2s ease;
+}
+
+.nameErrorMsg {
+  color: #e53935;
+  background: #fff0f0;
+  border: 1px solid #e53935;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  animation: popIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.nameErrorIcon {
+  font-size: 1.2rem;
+  margin-right: 0.3rem;
+  animation: shakeDelete 1.2s infinite;
 }
