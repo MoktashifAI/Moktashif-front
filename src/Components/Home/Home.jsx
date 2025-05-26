@@ -8,6 +8,7 @@ import { Helmet } from "react-helmet";
 import { motion } from "framer-motion";
 import { FaShieldAlt, FaSearch, FaChartLine, FaBolt, FaCheckCircle, FaChartBar, FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import ScannerAnimation from "./ScannerAnimation";
+import PcShowcaseSection from './PcShowcaseSection';
 
 gsap.registerPlugin(ScrollTrigger, TextPlugin);
 
@@ -188,7 +189,7 @@ export default function Home() {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className={style.logoContainer}
             >
-              <FaShieldAlt className={style.logoIcon} />
+              {/* <FaShieldAlt className={style.logoIcon} /> */}
             </motion.div>
             
             <h1 ref={titleRef} className={style.mainTitle}>
@@ -219,10 +220,10 @@ export default function Home() {
             </motion.div>
           </div>
         </section>
-
+      <div className="container-fluid">
         {/* Features Section */}
         <section className={`${style.featuresSectionModern} ${style.alignLeft}`}>
-          <div className={style.featuresInnerModern}>
+          <div className={`${style.featuresInnerModern}`}>
             {/* Left: Icon and Glow */}
             <motion.div
               className={style.featuresIconCol}
@@ -314,7 +315,8 @@ export default function Home() {
             </motion.div>
           </div>
         </section>
-
+      </div>
+     {/* customer reviews */}
         <section className={`${style.reviewsSectionBig}`}>
           <div className={style.reviewsGrid}>
             {/* Left: Title and Paragraph */}
@@ -367,11 +369,12 @@ export default function Home() {
             </div>
           </div>
         </section>
-
+        {/* contact support */}
         <Link to="/contactsupport" className={style.floatingContactSupport}>
           <i className="fa-solid fa-headset"></i>
         </Link>
       </div>
+      <PcShowcaseSection />
     </>
   );
 }

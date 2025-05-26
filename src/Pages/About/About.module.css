@@ -52,7 +52,6 @@
     color: var(--fourth_color);
     letter-spacing: 2px;
     font-weight: 800;
-    text-shadow: 0 0 12px var(--form_color), 0 2px 8px var(--shadow_color, #0008);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -126,7 +125,7 @@
 .highlight {
     color: var(--form_color);
     font-weight: bold;
-    text-shadow: 0 0 8px var(--form_color);
+    /* text-shadow: 0 0 8px var(--form_color); */
     transition: var(--theme_transition);
 }
 

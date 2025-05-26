@@ -383,16 +383,16 @@
 @media (max-width: 1024px) {
     .mainTitle {
         font-size: 3.5rem;
-    }
+}
 
     .animatedSubtitle {
         font-size: 2rem;
-    }
+}
 
     .scannerVisual {
         width: 90%;
         height: 350px;
-    }
+}
 }
 
 @media (max-width: 768px) {

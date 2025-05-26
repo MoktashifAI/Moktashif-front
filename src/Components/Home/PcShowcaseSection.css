@@ -1,0 +1,443 @@
+.pc-showcase-section {
+    width: 100%;
+    padding: 5rem 0 6rem 0;
+    background: var(--body_background);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: var(--theme_transition);
+}
+
+.pc-showcase-inner {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    max-width: 1400px;
+    width: 100%;
+    gap: 3.5rem;
+    padding: 2.5rem 2rem;
+    background: linear-gradient(120deg, var(--body_background) 60%, var(--feature_cards_color) 100%);
+    border-radius: 2.5rem;
+    border: none;
+    transition: var(--theme_transition);
+}
+
+.pc-illustration-col {
+    flex: 0 0 480px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 320px;
+    position: relative;
+}
+
+.pc-svg-wrapper {
+    position: relative;
+    width: 480px;
+    height: 340px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 1200px;
+}
+
+.pc-svg {
+    width: 480px;
+    height: 340px;
+    display: block;
+    z-index: 1;
+    filter: drop-shadow(0 0 60px #636E97aa) drop-shadow(0 8px 40px #8B95B955);
+    transition: var(--theme_transition);
+    transform: rotateY(-12deg) rotateX(6deg) scale(1.04);
+}
+
+.pc-glow-3d {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 420px;
+    height: 220px;
+    background: radial-gradient(circle at 60% 40%, #7eb6ff55 0%, #636E9722 60%, transparent 100%);
+    filter: blur(32px);
+    opacity: 0.7;
+    z-index: 0;
+    pointer-events: none;
+    animation: pcGlowPulse 3.5s ease-in-out infinite alternate;
+}
+
+@keyframes pcGlowPulse {
+    0% {
+        opacity: 0.7;
+    }
+
+    100% {
+        opacity: 1;
+        filter: blur(48px);
+    }
+}
+
+.pc-carousel-on-screen {
+    position: absolute;
+    left: 70px;
+    top: 80px;
+    width: 340px;
+    height: 140px;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px 0 #636E9733, 0 2px 16px 0 #8B95B955;
+    z-index: 2;
+    background: var(--body_background);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    transition: border 0.3s;
+}
+
+.carousel-img-wrap {
+    width: 100%;
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.carousel-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 14px;
+    box-shadow: 0 2px 16px 0 #636E9733;
+    border: 1.5px solid #636E9733;
+    background: #222b38;
+    transition: var(--theme_transition);
+}
+
+.pc-cursor {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    z-index: 3;
+    pointer-events: none;
+    animation: cursorMove 7s infinite linear;
+    filter: drop-shadow(0 2px 8px #636E97cc);
+}
+
+@keyframes cursorMove {
+    0% {
+        left: 90px;
+        top: 120px;
+        opacity: 0.7;
+    }
+
+    10% {
+        left: 120px;
+        top: 100px;
+        opacity: 1;
+    }
+
+    20% {
+        left: 180px;
+        top: 110px;
+        opacity: 1;
+    }
+
+    30% {
+        left: 250px;
+        top: 90px;
+        opacity: 1;
+    }
+
+    40% {
+        left: 300px;
+        top: 120px;
+        opacity: 1;
+    }
+
+    50% {
+        left: 200px;
+        top: 160px;
+        opacity: 1;
+    }
+
+    60% {
+        left: 120px;
+        top: 100px;
+        opacity: 1;
+    }
+
+    70% {
+        left: 90px;
+        top: 120px;
+        opacity: 0.7;
+    }
+
+    100% {
+        left: 90px;
+        top: 120px;
+        opacity: 0.7;
+    }
+}
+
+.pc-description-col {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    padding-left: 2rem;
+}
+
+.pc-section-title {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--form_color);
+    margin-bottom: 1.2rem;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    background: linear-gradient(90deg, #636E97, #8B95B9 80%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-fill-color: transparent;
+    transition: var(--theme_transition);
+}
+
+.pc-section-desc {
+    font-size: 1.18rem;
+    color: var(--text_color);
+    opacity: 0.95;
+    line-height: 1.7;
+    font-weight: 400;
+    margin-bottom: 0;
+    background: none;
+    transition: var(--theme_transition);
+}
+
+/* Carousel dots theme */
+.pc-carousel-on-screen .slick-dots li button:before {
+    color: #636E97;
+    opacity: 0.7;
+    font-size: 12px;
+}
+
+.pc-carousel-on-screen .slick-dots li.slick-active button:before {
+    color: #8B95B9;
+    opacity: 1;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+
+    .pc-svg-wrapper,
+    .pc-svg {
+        width: 340px;
+        height: 240px;
+    }
+
+    .pc-glow-3d {
+        width: 320px;
+        height: 120px;
+    }
+
+    .pc-carousel-on-screen {
+        left: 30px;
+        top: 50px;
+        width: 220px;
+        height: 80px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .pc-showcase-inner {
+        gap: 1.5rem;
+        padding: 1.5rem 0.5rem;
+    }
+
+    .pc-illustration-col {
+        flex-basis: 320px;
+        min-width: 220px;
+    }
+
+    .pc-svg-wrapper,
+    .pc-svg {
+        width: 320px;
+        height: 220px;
+    }
+
+    .pc-glow-3d {
+        width: 220px;
+        height: 80px;
+    }
+
+    .pc-carousel-on-screen {
+        left: 24px;
+        top: 44px;
+        width: 180px;
+        height: 60px;
+    }
+}
+
+@media (max-width: 768px) {
+    .pc-showcase-inner {
+        flex-direction: column;
+        gap: 2.5rem;
+        padding: 1.2rem 0.2rem;
+        align-items: center;
+    }
+
+    .pc-illustration-col {
+        min-width: 0;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .pc-svg-wrapper,
+    .pc-svg {
+        width: 90vw;
+        max-width: 320px;
+        height: 180px;
+    }
+
+    .pc-glow-3d {
+        width: 160px;
+        height: 60px;
+    }
+
+    .pc-carousel-on-screen {
+        left: 12px;
+        top: 28px;
+        width: 120px;
+        height: 40px;
+    }
+
+    .pc-description-col {
+        padding-left: 0;
+        text-align: center;
+    }
+
+    .pc-section-title {
+        font-size: 1.5rem;
+    }
+
+    .pc-section-desc {
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .pc-svg-wrapper,
+    .pc-svg {
+        width: 98vw;
+        max-width: 180px;
+        height: 80px;
+    }
+
+    .pc-glow-3d {
+        width: 80px;
+        height: 30px;
+    }
+
+    .pc-carousel-on-screen {
+        left: 6px;
+        top: 14px;
+        width: 60px;
+        height: 18px;
+    }
+
+    .pc-section-title {
+        font-size: 1.1rem;
+    }
+
+    .pc-section-desc {
+        font-size: 0.95rem;
+    }
+}
+
+.retro-pc-wrapper {
+    position: relative;
+    width: 420px;
+    height: 340px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    background: none;
+}
+
+.retro-pc-svg {
+    width: 420px;
+    height: 340px;
+    display: block;
+    z-index: 1;
+    filter: drop-shadow(0 0 40px #636E9722);
+    transition: var(--theme_transition);
+}
+
+.retro-pc-video-on-screen {
+    position: absolute;
+    left: 90px;
+    top: 60px;
+    width: 240px;
+    height: 80px;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px 0 rgba(99, 110, 151, 0.13);
+    z-index: 2;
+    background: #181a22;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 1024px) {
+
+    .retro-pc-wrapper,
+    .retro-pc-svg {
+        width: 320px;
+        height: 240px;
+    }
+
+    .retro-pc-video-on-screen {
+        left: 60px;
+        top: 40px;
+        width: 160px;
+        height: 50px;
+    }
+}
+
+@media (max-width: 768px) {
+
+    .retro-pc-wrapper,
+    .retro-pc-svg {
+        width: 90vw;
+        max-width: 320px;
+        height: 180px;
+    }
+
+    .retro-pc-video-on-screen {
+        left: 30px;
+        top: 20px;
+        width: 100px;
+        height: 30px;
+    }
+}
+
+@media (max-width: 480px) {
+
+    .retro-pc-wrapper,
+    .retro-pc-svg {
+        width: 98vw;
+        max-width: 180px;
+        height: 80px;
+    }
+
+    .retro-pc-video-on-screen {
+        left: 12px;
+        top: 8px;
+        width: 50px;
+        height: 16px;
+    }
+}

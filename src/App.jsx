@@ -16,7 +16,6 @@ import GlobalContextProvider from "./Context/GlobalContext";
 import About from "./Pages/About/About";
 import UserProfile from "./Components/UserProfile/UserProfile";
 import Chatbot from "./Components/ChatBot/Chatbot";
-import { GlobalContext } from "./Context/GlobalContext";
 import { ProfileProvider } from './Context/ProfileContext';
 
 // Create a new context for profile updates
@@ -31,7 +30,11 @@ function AppContent() {
 
   let routers = createBrowserRouter([
     {
-      path: '', element: <Layout />, children: [
+      path: '', 
+      element: (
+          <Layout />
+      ), 
+      children: [
         { index: true, element: <Home /> },
         { path: 'home', element: <Home /> },
         { path: 'scanner', element: <ProtectedRoute><ScannerInput /></ProtectedRoute> },
@@ -40,7 +43,7 @@ function AppContent() {
         { path: 'signin', element: <SignIn_SignUp /> },
         { path: 'profile', element: <ProtectedRoute><UserProfile onProfileUpdate={handleProfileUpdate} /></ProtectedRoute> },
         { path: '*', element: <NotFound /> },
-        { path: 'contactsupport', element: < ContactSupport /> },
+        { path: 'contactsupport', element: <ContactSupport /> },
         { path: 'terms', element: <TermsOfService /> },
         { path: 'privacy', element: <PrivacyPolicy /> },
         { path: 'about', element: <About /> },
@@ -58,13 +61,13 @@ function AppContent() {
 
 function App() {
   return (
-    <UserContextProvider>
-      <GlobalContextProvider>
-        <ProfileProvider>
-          <AppContent />
-        </ProfileProvider>
-      </GlobalContextProvider>
-    </UserContextProvider>
+      <UserContextProvider>
+        <GlobalContextProvider>
+          <ProfileProvider>
+              <AppContent />
+          </ProfileProvider>
+        </GlobalContextProvider>
+      </UserContextProvider>
   );
 }
 

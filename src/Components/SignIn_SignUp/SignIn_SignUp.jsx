@@ -8,6 +8,7 @@ import { HashLoader } from "react-spinners";
 import { UserContext } from "../../Context/UserContext.jsx";
 import { Helmet } from "react-helmet";
 import { GlobalContext } from "../../Context/GlobalContext.jsx";
+import CyberBackground from './CyberBackground';
 
 // Constants
 const PASSWORD_REGEX =
@@ -245,6 +246,7 @@ export default function SignIn_SignUp() {
       <title>Sign In/Sign Up</title>
     </Helmet>
     <section className={style.signInBackGround}>
+      <CyberBackground />
       <div className={style.animatedBg}></div>
       <div className={`${style.container} mb-10`} id="container">
         <SignUpForm
