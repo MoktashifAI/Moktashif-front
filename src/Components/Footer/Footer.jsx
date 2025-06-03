@@ -5,7 +5,7 @@ export default function Footer() {
         <footer className={`w-100 ${style.footerContainer}`}>
             <div className={style.upperBorder}></div>
             <div className={style.footerStyle}>
-                <div className={style.copyright}>Copyright © 2022 BRIX | All Rights Reserved</div>
+                <div className={style.copyright}>Copyright © 2025 MOKTASHIF | All Rights Reserved</div>
                 <div className={style.socialIconsDev}>
                     <div>
                         <i className={`cursor-pointer fa-brands fa-facebook-f ${style.social_icons}`} />

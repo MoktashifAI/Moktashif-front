@@ -5,6 +5,9 @@ import style from './ForgetPassword.module.css';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet';
 
+// Password validation regex (copied from SignIn_SignUp.jsx)
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\-_=+{};:,<.>/?\\|\[\]]).{8,}$/;
+
 const ForgetPassword = () => {
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
@@ -38,6 +41,12 @@ const ForgetPassword = () => {
         e.preventDefault();
         setLoading(true);
         setError('');
+        // Password validation
+        if (!PASSWORD_REGEX.test(newPassword)) {
+            setError('Password must be at least 8 characters and contain uppercase, lowercase, number and special character');
+            setLoading(false);
+            return;
+        }
         if (newPassword !== confirmPassword) {
             setError('Passwords do not match');
             setLoading(false);
@@ -56,7 +65,6 @@ const ForgetPassword = () => {
                 }, 2000);
             }
         } catch (err) {
-            
             setError(err.response?.data?.errMsg || 'Something went wrong');
         } finally {
             setLoading(false);
@@ -65,12 +73,12 @@ const ForgetPassword = () => {
 
     return <>
         <Helmet>
-            <title>Forgot Password</title>
+            <title>Reset Password</title>
         </Helmet>
         <div className={style.authContainer}>
             <div className={style.animatedBg}></div>
             <motion.div
-                className={style.authForm}
+                className={`mt-20 ${style.authForm}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
