@@ -7,4 +7,13 @@ export default defineConfig({
     react(),
     tailwindcss()
   ],
+  server: {
+    proxy: {
+      '/conversations': 'http://localhost:5000',
+      '/chat': 'http://localhost:5000',
+      '/upload': 'http://localhost:5000',
+      '/file': 'http://localhost:5000',
+      '/user': 'http://localhost:5000',
+    }
+  },
 })

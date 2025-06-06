@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import style from './Chatbot.module.css';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -12,8 +12,34 @@ import { motion } from 'framer-motion';
 import CyberBackgroundChatBot from './CyberBackgroundChatBot';
 import FileSelector from './FileSelector';
 
+// Configure axios with base URL
+const API_BASE_URL = 'http://localhost:5000'; // Change this to your Flask backend URL
+const api = axios.create({
+    baseURL: API_BASE_URL
+});
+
+api.interceptors.request.use(config => {
+    const token = localStorage.getItem('userToken');
+    if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+});
+
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+    response => response,
+    error => {
+        if (error.response?.status === 401 || error.response?.status === 404 || error.response?.status === 422) {
+            localStorage.removeItem('userToken');
+            window.location.href = '/signin';
+        }
+        return Promise.reject(error);
+    }
+);
+
 export default function Chatbot() {
-    const { conversationId } = useParams();
+    const [conversationId, setConversationId] = useState(null);
     const [message, setMessage] = useState('');
     const [conversations, setConversations] = useState([]);
     const [currentConversation, setCurrentConversation] = useState(null);
@@ -55,19 +81,12 @@ export default function Chatbot() {
             title = 'New Conversation';
         }
         try {
-            const token = localStorage.getItem('userToken');
             // Only send title if it's not the default
             const data = title && title !== 'New Conversation' ? { title } : {};
-            const response = await axios.post(
-                '/conversations/new',
-                data,
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            );
+            const response = await api.post('/conversations/new', data);
             const newConversation = response.data.conversation;
             setConversations(prev => sortConversations([newConversation, ...prev]));
-            navigate(`/chat/${newConversation.id}`);
+            setConversationId(newConversation.id);
         } catch (err) {
             // Optionally handle error
             console.error('Failed to create new conversation:', err);
@@ -76,15 +95,14 @@ export default function Chatbot() {
 
     const handleDeleteConversation = async (id) => {
         try {
-            // const token = localStorage.getItem('userToken');
-            await axios.delete(`/conversations/${id}`);
+            await api.delete(`/conversations/${id}`);
             setConversations(prev => sortConversations(prev.filter(conv => conv.id !== id)));
             if (id === conversationId) {
                 if (conversations.length > 1) {
-                    // Find the next conversation to navigate to
+                    // Find the next conversation to select
                     const nextConv = conversations.find(conv => conv.id !== id);
                     if (nextConv) {
-                        navigate(`/chat/${nextConv.id}`);
+                        setConversationId(nextConv.id);
                     }
                 } else {
                     // Create a new conversation if this was the last one
@@ -98,12 +116,7 @@ export default function Chatbot() {
 
     const handleRenameConversation = async (id, newTitle) => {
         try {
-            const token = localStorage.getItem('userToken');
-            await axios.put(
-                `/conversations/${id}/rename`,
-                { title: newTitle },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const response = await api.put(`/conversations/${id}/rename`, { title: newTitle });
             setConversations(prev => sortConversations(
                 prev.map(conv =>
                     conv.id === id ? { ...conv, title: newTitle } : conv
@@ -122,85 +135,37 @@ export default function Chatbot() {
         }
     };
 
-
-    // Function to fetch the latest conversation data
-    const fetchConversation = async () => {
-        if (!conversationId) return;
-        try {
-            const token = localStorage.getItem('userToken');
-            const response = await axios.get(`/conversations/${conversationId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (response.data && response.data.conversation) {
-                const conv = response.data.conversation;
-                setMessages(conv.messages || []);
-                setCurrentConversation(conv);
-                setConversations(prevConvs => {
-                    return sortConversations(prevConvs.map(c =>
-                        c.id === conv.id ? {
-                            ...c,
-                            title: conv.title,
-                            updated_at: conv.updated_at,
-                            message_count: (conv.messages || []).length
-                        } : c
-                    ));
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching conversation:', error);
+    // --- API error handler helper ---
+    function handleAuthError(err, navigate) {
+        if (err.response?.status === 401 || err.response?.status === 404 || err.response?.status === 422) {
+            localStorage.removeItem('userToken');
+            navigate('/signin');
+            return true;
         }
-    };
+        return false;
+    }
 
-    // Utility: Only show error for duplicate conversation names
-    const extractRenameError = (error) => {
-        if (
-            error?.response?.data?.msg &&
-            error.response.data.msg.toLowerCase().includes('already exists')
-        ) {
-            return error.response.data.msg;
-        }
-        return '';
-    };
-
-    // Utility function to sort conversations newest to oldest
-    const sortConversations = (convs) => {
-        return [...convs].sort((a, b) => {
-            const aTime = new Date(a.updated_at || a.created_at).getTime();
-            const bTime = new Date(b.updated_at || b.created_at).getTime();
-            return bTime - aTime;
-        });
-    };
-
-    // Utility function for truncating reply context
-    const getReplyPreview = (content, maxLen = 80) => {
-        if (!content) return '';
-        const singleLine = content.replace(/\s+/g, ' ').trim();
-        return singleLine.length > maxLen ? singleLine.slice(0, maxLen) + '...' : singleLine;
-    };
-
-    // Fetch all conversations on mount and after relevant actions
+    // --- Conversation fetch ---
     const fetchConversations = useCallback(async () => {
         try {
             setIsLoading(true);
-            const token = localStorage.getItem('userToken');
-            const response = await axios.get('/conversations', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get('/conversations');
             const convs = response.data.conversations || [];
                 setConversations(sortConversations(convs));
                 setConversationsLoaded(true);
-                setRetryCount(0); // Reset retry count on successful load
+            setRetryCount(0);
         } catch (err) {
+            if (handleAuthError(err, navigate)) return;
             console.error("Error fetching conversations:", err);
             if (retryCount < 3) {
                 setTimeout(() => {
                     setRetryCount(prev => prev + 1);
-                }, 500); // Retry after 500ms
+                }, 500);
             }
         } finally {
             setIsLoading(false);
         }
-    }, [retryCount]);
+    }, [retryCount, navigate]);
 
     useEffect(() => {
         fetchConversations();
@@ -240,14 +205,81 @@ export default function Chatbot() {
         }
     }, [messages]);
 
+    // --- Fetch single conversation ---
+    const fetchConversation = async (id = conversationId) => {
+        if (!id) return;
+        try {
+            const response = await api.get(`/conversations/${id}`);
+            if (response.data && response.data.conversation) {
+                const conv = response.data.conversation;
+                setMessages(conv.messages || []);
+                setCurrentConversation(conv);
+                setConversations(prevConvs => {
+                    return sortConversations(prevConvs.map(c =>
+                        c.id === conv.id ? {
+                            ...c,
+                            title: conv.title,
+                            updated_at: conv.updated_at,
+                            message_count: (conv.messages || []).length
+                        } : c
+                    ));
+                });
+            }
+        } catch (err) {
+            if (handleAuthError(err, navigate)) return;
+            console.error('Error fetching conversation:', err);
+        }
+    };
+
+    // Utility: Only show error for duplicate conversation names
+    const extractRenameError = (error) => {
+        if (
+            error?.response?.data?.msg &&
+            error.response.data.msg.toLowerCase().includes('already exists')
+        ) {
+            return error.response.data.msg;
+        }
+        return '';
+    };
+
+    // Utility function to sort conversations newest to oldest
+    const sortConversations = (convs) => {
+        return [...convs].sort((a, b) => {
+            const aTime = new Date(a.updated_at || a.created_at).getTime();
+            const bTime = new Date(b.updated_at || b.created_at).getTime();
+            return bTime - aTime;
+        });
+    };
+
+    // Utility function for truncating reply context
+    const getReplyPreview = (content, maxLen = 80) => {
+        if (!content) return '';
+        const singleLine = content.replace(/\s+/g, ' ').trim();
+        return singleLine.length > maxLen ? singleLine.slice(0, maxLen) + '...' : singleLine;
+    };
+
     // Streaming send message
     const handleSendMessage = async (e) => {
         e.preventDefault();
-        if (!message.trim() || !conversationId) return;
+        if (!message.trim()) return;
         setIsLoading(true);
         setError('');
+        let convId = conversationId;
         try {
-            const token = localStorage.getItem('userToken');
+            // If no conversationId, create a new conversation first
+            if (!convId) {
+                const createResp = await api.post('/conversations/new', { title: 'New Conversation' });
+                if (createResp.data && createResp.data.conversation) {
+                    convId = createResp.data.conversation.id;
+                    setConversations(prev => [createResp.data.conversation, ...prev]);
+                    setConversationId(convId);
+                } else {
+                    setError('Failed to create new conversation.');
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
             const payload = {
                 message,
                 force_web_search: webSearchEnabled,
@@ -258,77 +290,73 @@ export default function Chatbot() {
                 } : undefined,
                 file_id: uploadedFile?.file_id || null
             };
-            const response = await axios.post(
-                `/chat/${conversationId}`,
+
+            const response = await api.post(
+                `/chat/${convId}`,
                 payload,
                 {
-                headers: {
-                        'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    },
-                    responseType: 'text', // Expect plain text response
+                    responseType: 'text',
                 }
             );
-            // Add user message to chat
-            setMessages(prev => [...prev, { role: 'user', content: message }]);
+
+            // Update messages before any navigation
+            setMessages(prev => [
+                ...prev,
+                { role: 'user', content: message },
+                { role: 'assistant', content: response.data }
+            ]);
             setMessage('');
-            // Add assistant response to chat
-            setMessages(prev => [...prev, { role: 'user', content: message }, { role: 'assistant', content: response.data }]);
+            setWebSearchEnabled(false);
+            setReplyTo(null);
+            if (uploadedFile) {
+                setUploadedFile(null);
+                setUploadedFileDisplay(null);
+                setFileLocked(false);
+            }
+            await fetchConversation(convId);
         } catch (err) {
-            setError('Failed to send message');
             console.error('Error sending message:', err);
+            if (err.response?.status === 404) {
+                setError('Conversation not found. Creating a new one...');
+                handleNewChat();
+            } else {
+                setError('Failed to send message. Please try again.');
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Modified submit handler to track file attachment
+    // Refactor handleSubmit to use axios for streaming if possible
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!message.trim() || !conversationId) return;
-
-        // Reset auto search indicator
         setAutoSearchActive(false);
         setReplyTo(null);
-
-        // Build the user message
         const userMessage = {
             role: 'user',
             content: message,
         };
-
-        // Add reply context if available
         if (replyTo && replyTo.msg) {
             userMessage.replyTo = {
                 index: replyTo.index,
                 content: replyTo.msg.content
             };
         }
-
-        // Add file information if available
         const fileId = uploadedFile?.file_id || null;
         if (uploadedFileDisplay && fileId) {
             userMessage.hasFile = true;
             userMessage.fileName = uploadedFileDisplay;
             userMessage.file_id = fileId;
         }
-
-        // Immediately update local state with file information
-        const newMessageIndex = messages.length;
         setMessages(prevMessages => [...prevMessages, userMessage]);
         setMessage('');
         setIsLoading(true);
         setStreamingResponse('');
-
         try {
-            // Send the message to the server
-            const token = localStorage.getItem('userToken');
-
-            // Determine which endpoint to use based on webSearchEnabled
             const endpoint = webSearchEnabled
                 ? `/conversations/${conversationId}/web_search`
                 : `/chat/${conversationId}`;
-
             const payloadData = {
                 message,
                 force_web_search: false,
@@ -337,19 +365,21 @@ export default function Chatbot() {
                     content: replyTo.msg.content,
                     isCurrentVersion: true
                 } : undefined,
-                file_id: fileId // Send file_id to the server
+                file_id: fileId
             };
 
-            console.log('Sending message with payload:', payloadData);
-
-            const response = await fetch(endpoint, {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${localStorage.getItem('userToken')}`
                 },
                 body: JSON.stringify(payloadData)
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
             if (!response.body) throw new Error('No response body');
             const reader = response.body.getReader();
@@ -362,64 +392,54 @@ export default function Chatbot() {
                 setStreamingResponse(partial);
             }
             setStreamingResponse('');
-
-            // Check if web search was used
             const wasWebSearchUsed = webSearchEnabled || response.headers.get('X-Web-Search-Used') === 'true';
             if (wasWebSearchUsed) {
                 setAutoSearchActive(true);
             }
-
-            // Fetch updated conversation
             await fetchConversation();
-
-            // Reset web search mode after sending
             setWebSearchEnabled(false);
-
-            // Clear uploaded file after sending
             setUploadedFile(null);
             setUploadedFileDisplay(null);
             setFileLocked(false);
-
         } catch (error) {
             console.error('Error sending message:', error);
+            if (error.message.includes('404')) {
+                setError('Conversation not found. Creating a new one...');
+                handleNewChat();
+            } else {
+                setError('Failed to send message. Please try again.');
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Update the file upload handler
+    // --- File upload ---
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file || !conversationId) return;
-
         setUploading(true);
         setUploadStatus('');
-
         try {
-            const token = localStorage.getItem('userToken');
             const formData = new FormData();
             formData.append('file', file);
             formData.append('conversation_id', conversationId);
-
-            const response = await axios.post('/upload', formData, {
+            const response = await api.post('/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
-                    'Authorization': `Bearer ${token}`
                 },
             });
-
-            // Set uploaded file data with file_id from response
             const fileObj = {
                 file_id: response.data.file_id,
                 name: file.name,
                 display_name: response.data.filename || file.name
             };
-
             setUploadedFile(fileObj);
             setUploadedFileDisplay(response.data.filename || file.name);
             setUploadStatus(response.data.msg);
-            setFileLocked(false); // Ensure the file can be removed
+            setFileLocked(false);
         } catch (err) {
+            if (handleAuthError(err, navigate)) return;
             setUploadStatus('Upload failed: ' + (err.response?.data?.msg || err.message));
             setUploadedFile(null);
             setUploadedFileDisplay(null);
@@ -523,11 +543,9 @@ export default function Chatbot() {
         setEditLoading(true);
         setEditError('');
         try {
-            const token = localStorage.getItem('userToken');
-            const response = await axios.put(
+            const response = await api.put(
                 `/conversations/${conversationId}/messages/${index}/edit`,
                 { content: editingMsgValue },
-                { headers: { Authorization: `Bearer ${token}` } }
             );
             if (response.data && response.data.conversation) {
                 setCurrentConversation(response.data.conversation);
@@ -537,6 +555,7 @@ export default function Chatbot() {
                 setPairVersionIdx({});
             }
         } catch (err) {
+            if (handleAuthError(err, navigate)) return;
             setEditError(err?.response?.data?.msg || 'Failed to edit message');
         } finally {
             setEditLoading(false);
@@ -585,10 +604,7 @@ export default function Chatbot() {
         const fetchCurrentConversation = async () => {
             if (!conversationId) return;
             try {
-                const token = localStorage.getItem('userToken');
-                const response = await axios.get(`/conversations/${conversationId}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const response = await api.get(`/conversations/${conversationId}`);
 
                 if (response.data && response.data.conversation) {
                     const conv = response.data.conversation;
@@ -599,12 +615,12 @@ export default function Chatbot() {
                     // Update the conversation in the conversations list
                     setConversations(prevConvs => {
                         return sortConversations(prevConvs.map(c =>
-                            c.id === conv.id ? {
-                                ...c,
-                                title: conv.title,
-                                updated_at: conv.updated_at,
-                                message_count: (conv.messages || []).length
-                            } : c
+                        c.id === conv.id ? {
+                            ...c,
+                            title: conv.title,
+                            updated_at: conv.updated_at,
+                            message_count: (conv.messages || []).length
+                        } : c
                         ));
                     });
                 }
@@ -627,24 +643,17 @@ export default function Chatbot() {
         const createNewConversationIfNeeded = async () => {
             if (!conversationId && conversations.length === 0) {
                 try {
-                    const token = localStorage.getItem('userToken');
-                    const response = await axios.post(
+                    const response = await api.post(
                         '/conversations/new',
                         { title: 'New Conversation' },
-                        {
-                            headers: { 
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json'
-                            }
-                        }
                     );
 
                     if (response.data && response.data.conversation) {
                         const newConversation = response.data.conversation;
                         // Add the new conversation to the list
                         setConversations(prev => sortConversations([newConversation, ...prev]));
-                        // Navigate to the new conversation
-                        navigate(`/chat/${newConversation.id}`);
+                        // Set the new conversation ID in state
+                        setConversationId(newConversation.id);
                     }
                 } catch (error) {
                     console.error('Error creating new conversation:', error);
@@ -655,22 +664,19 @@ export default function Chatbot() {
                     }
                 }
             } else if (!conversationId && conversations.length > 0) {
-                // If no conversation is selected but we have conversations, navigate to the first one
-                navigate(`/chat/${conversations[0].id}`);
+                // If no conversation is selected but we have conversations, set the first one
+                setConversationId(conversations[0].id);
             }
         };
 
         createNewConversationIfNeeded();
-    }, [conversationId, conversations, navigate]);
+    }, [conversationId, conversations]);
 
     // Add function to fetch previously uploaded files
     const fetchPreviousFiles = useCallback(async () => {
         try {
             setLoadingPreviousFiles(true);
-            const token = localStorage.getItem('userToken');
-            const response = await axios.get('/user/files', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get('/user/files');
             if (response.data && response.data.files) {
                 setPreviousFiles(response.data.files);
             }
@@ -686,12 +692,7 @@ export default function Chatbot() {
         try {
             setUploading(true);
             setUploadStatus('Loading previously uploaded file...');
-
-            const token = localStorage.getItem('userToken');
-            const response = await axios.get(`/file/${fileId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
+            const response = await api.get(`/file/${fileId}`);
             if (response.data) {
                 const fileData = response.data;
                 const fileObj = {
@@ -702,19 +703,14 @@ export default function Chatbot() {
                     content_truncated: fileData.content_truncated,
                     metadata: fileData.metadata
                 };
-
                 setUploadedFile(fileObj);
                 setUploadedFileDisplay(fileData.filename || fileName);
                 setUploadStatus('File selected successfully');
                 setFileLocked(false);
             }
-        } catch (error) {
-            console.error('Error selecting file:', error);
-            if (error.response?.status === 404) {
-                setUploadStatus('File not found or not authorized');
-            } else {
-                setUploadStatus('Error selecting file: ' + (error.response?.data?.msg || error.message));
-            }
+        } catch (err) {
+            if (handleAuthError(err, navigate)) return;
+            setUploadStatus('Error selecting file: ' + (err.response?.data?.msg || err.message));
             setUploadedFile(null);
             setUploadedFileDisplay(null);
         } finally {
@@ -769,6 +765,7 @@ export default function Chatbot() {
                 onRenameConversation={handleRenameConversation}
                 isOpen={isSidebarOpen}
                 onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+                onSelectConversation={setConversationId}
             />
             {/* Main chat area */}
             <div className="flex-1 flex flex-col" style={{position: 'relative', zIndex: 1, overflow: 'hidden'}}>
@@ -809,217 +806,43 @@ export default function Chatbot() {
                     <div className="space-y-6">
                         {messages.map((msg, index) => {
                             if (msg.role === 'user') {
-                                const assistantMsg = messages[index + 1] && messages[index + 1].role === 'assistant' ? messages[index + 1] : null;
                                 return (
-                                    <React.Fragment key={index}>
-                                        <motion.div
-                                            ref={el => messageRefs.current[index] = el}
-                                            className={style.userBubble + ' group'}
-                                            id={`msg-${index}`}
-                                            initial={{ opacity: 0, x: 40 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ duration: 0.3, type: 'tween' }}
-                                        >
-                                            {/* File info */}
-                                            {msg.hasFile && msg.fileName && (
-                                                <div className={style.fileChip}>
-                                                    <FaPaperclip className="mr-2" />
-                                                    <span className="truncate max-w-[120px]">{msg.fileName}</span>
-                                                </div>
-                                            )}
-                                            {/* Reply context */}
-                                            {msg.replyTo && (
-                                                <div
-                                                    className={style.replyChip + ' mb-1'}
-                                                    onClick={() => {
-                                                        if (msg.replyTo.index !== undefined) {
-                                                            const el = document.getElementById(`msg-${msg.replyTo.index}`);
-                                                            if (el) {
-                                                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                                                el.classList.add('highlight-reply');
-                                                                setTimeout(() => el.classList.remove('highlight-reply'), 1500);
-                                                            }
-                                                        }
-                                                    }}
-                                                    title="Click to view replied message"
-                                                >
-                                                    Replying to: {getReplyPreview(msg.replyTo.content)}
-                                                </div>
-                                            )}
-                                            {/* EDIT MODE: Show textarea if editing this message */}
-                                            {editingMsgIdx === index ? (
-                                                <div className="flex flex-col gap-2">
-                                                    <textarea
-                                                        className="w-full rounded border border-gray-300 dark:border-gray-600 p-2 text-gray-900 dark:text-white bg-white dark:bg-[#23273a]"
-                                                        value={editingMsgValue}
-                                                        onChange={e => setEditingMsgValue(e.target.value)}
-                                                        rows={3}
-                                                        autoFocus
-                                                        disabled={editLoading}
-                                                        onKeyDown={e => {
-                                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                                e.preventDefault();
-                                                                handleEditSubmit(index);
-                                                            } else if (e.key === 'Escape') {
-                                                                setEditingMsgIdx(null);
-                                                                setEditingMsgValue('');
-                                                            }
-                                                        }}
-                                                    />
-                                                    <div className="flex gap-2 mt-1">
-                                                        <button
-                                                            className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm disabled:opacity-50"
-                                                            onClick={() => handleEditSubmit(index)}
-                                                            disabled={editLoading || !editingMsgValue.trim()}
-                                                            type="button"
-                                                        >
-                                                            {editLoading ? 'Saving...' : 'Save'}
-                                                        </button>
-                                                        <button
-                                                            className="px-3 py-1 rounded bg-gray-300 text-gray-800 hover:bg-gray-400 text-sm"
-                                                            onClick={() => { setEditingMsgIdx(null); setEditingMsgValue(''); }}
-                                                            type="button"
-                                                            disabled={editLoading}
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                    {editError && <div className="text-red-500 text-xs mt-1">{editError}</div>}
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    {/* Message content */}
-                                                    <ReactMarkdown components={components}>
-                                                        {getPairDisplayedContent(msg, index)}
-                                                    </ReactMarkdown>
-                                                    {/* Actions (copy, edit, reply, version toggle) */}
-                                                    <div className="flex gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                                        <button
-                                                            onClick={() => navigator.clipboard.writeText(getPairDisplayedContent(msg, index))}
-                                                            title="Copy message"
-                                                            className="p-1 rounded hover:bg-gray-200 focus:outline-none"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
-                                                                <rect x="3" y="3" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                setEditingMsgIdx(index);
-                                                                setEditingMsgValue(getPairDisplayedContent(msg, index));
-                                                            }}
-                                                            title="Edit message"
-                                                            className="p-1 rounded hover:bg-gray-200 focus:outline-none"
-                                                            disabled={editLoading}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-2.828 0L9 13zm0 0V21h8" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                const currentDisplayedContent = getPairDisplayedContent(msg, index);
-                                                            const replyMsg = { ...msg, content: currentDisplayedContent };
-                                                                setReplyTo({ index, msg: replyMsg });
-                                                            }}
-                                                            title="Reply to message"
-                                                            className="p-1 rounded hover:bg-gray-200 focus:outline-none"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="black" viewBox="0 0 24 24">
-                                                                <path d="M21 11H6.41l5.3-5.29a1 1 0 10-1.42-1.42l-7 7a1 1 0 000 1.42l7 7a1 1 0 001.42-1.42L6.41 13H21a1 1 0 100-2z" />
-                                                            </svg>
-                                                        </button>
-                                                        {msg.versions && msg.versions.length > 0 && (
-                                                            <div className="flex items-center gap-1 ml-1">
-                                                                <button
-                                                                    onClick={() => handlePairVersionToggle(index, 1)}
-                                                                    disabled={(pairVersionIdx[index] || 0) >= msg.versions.length}
-                                                                    className="p-1 text-xs rounded hover:bg-gray-200"
-                                                                    title="Previous version"
-                                                                >&#8592;</button>
-                                                                <span className="text-xs">{(pairVersionIdx[index] || 0) + 1}/{(msg.versions?.length || 0) + 1}</span>
-                                                                <button
-                                                                    onClick={() => handlePairVersionToggle(index, -1)}
-                                                                    disabled={(pairVersionIdx[index] || 0) <= 0}
-                                                                    className="p-1 text-xs rounded hover:bg-gray-200"
-                                                                    title="Next version"
-                                                                >&#8594;</button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </>
-                                            )}
-                                        </motion.div>
-                                        {/* Assistant response for this user message */}
-                                        {assistantMsg && (
-                                            <motion.div
-                                                ref={el => messageRefs.current[index + 1] = el}
-                                                className={style.assistantBubble + ' group'}
-                                                id={`msg-${index + 1}`}
-                                                initial={{ opacity: 0, x: -40 }}
-                                                animate={{ opacity: 1, x: 0 }}
-                                                transition={{ duration: 0.3, type: 'tween' }}
-                                            >
-                                                        <ReactMarkdown components={components}>
-                                                            {getPairDisplayedContent(assistantMsg, index, true)}
-                                                        </ReactMarkdown>
-                                                <div className="flex gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                                        <button
-                                                        onClick={() => navigator.clipboard.writeText(getPairDisplayedContent(assistantMsg, index, true))}
-                                                            title="Copy message"
-                                                            className="p-1 rounded hover:bg-gray-200 focus:outline-none"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
-                                                                <rect x="3" y="3" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="2" fill="none" />
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => {
-                                                                const currentDisplayedContent = getPairDisplayedContent(assistantMsg, index, true);
-                                                            const replyMsg = { ...assistantMsg, content: currentDisplayedContent };
-                                                                setReplyTo({ index: index + 1, msg: replyMsg });
-                                                            }}
-                                                            title="Reply to message"
-                                                            className="p-1 rounded hover:bg-gray-200 focus:outline-none"
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="black" viewBox="0 0 24 24">
-                                                                <path d="M21 11H6.41l5.3-5.29a1 1 0 10-1.42-1.42l-7 7a1 1 0 000 1.42l7 7a1 1 0 001.42-1.42L6.41 13H21a1 1 0 100-2z" />
-                                                            </svg>
-                                                        </button>
-                                                    </div>
-                                            </motion.div>
-                                        )}
-                                    </React.Fragment>
+                                    <div key={index} style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                                        <div className={style.userBubble}>
+                                            <ReactMarkdown components={components}>
+                                                {getPairDisplayedContent(msg, index)}
+                                            </ReactMarkdown>
+                                        </div>
+                                    </div>
+                                );
+                            } else if (msg.role === 'assistant') {
+                                return (
+                                    <div key={index} style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+                                        <div className={style.assistantBubble}>
+                                            <ReactMarkdown components={components}>
+                                                {getPairDisplayedContent(msg, index, true)}
+                                            </ReactMarkdown>
+                                        </div>
+                                    </div>
                                 );
                             }
                             return null;
                         })}
                         {streamingResponse && (
-                            <motion.div
-                                className={style.assistantBubble}
-                                initial={{ opacity: 0, x: -40 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ duration: 0.3, type: 'tween' }}
-                            >
+                            <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+                                <div className={style.assistantBubble}>
                                     <ReactMarkdown components={components}>
                                         {streamingResponse}
                                     </ReactMarkdown>
-                            </motion.div>
+                                </div>
+                            </div>
                         )}
                         {isLoading && !streamingResponse && (
-                            <motion.div
-                                className={style.assistantBubble}
-                                initial={{ opacity: 0, x: -40 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ duration: 0.3, type: 'tween' }}
-                            >
-                                <div className={style.loadingSpinner}>
-                                    <FaSpinner className="animate-spin" />
-                                    <span>Thinking...</span>
-                                    </div>
-                            </motion.div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+                                <div className={style.assistantBubble}>
+                                    <div className={style.spinner}></div>
+                                </div>
+                            </div>
                         )}
                         <div ref={messageEndRef} />
                     </div>

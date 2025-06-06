@@ -71,9 +71,14 @@
   animation: itemPopIn 0.5s cubic-bezier(.23,1.01,.32,1);
 }
 .conversationItem:hover {
-  background: var(--fourth_color);
-  color: #fff;
+  background: #e0e7ef;
+  color: var(--form_color);
   box-shadow: 0 2px 8px 0 var(--fourth_color);
+}
+.conversationItem:hover .conversationDate,
+.conversationItem:hover span,
+.conversationItem:hover div {
+  color: var(--form_color) !important;
 }
 .activeConversation {
   background: var(--form_color);
@@ -147,9 +152,13 @@
   color: var(--text_color);
 }
 [data-theme="dark"] .conversationItem:hover {
-  background: var(--fourth_color);
+  background: #2a3140;
   color: #fff;
-  box-shadow: 0 2px 8px 0 var(--fourth_color);
+}
+[data-theme="dark"] .conversationItem:hover .conversationDate,
+[data-theme="dark"] .conversationItem:hover span,
+[data-theme="dark"] .conversationItem:hover div {
+  color: #fff !important;
 }
 [data-theme="dark"] .newChatBtn {
   background: var(--footer_upper_border);

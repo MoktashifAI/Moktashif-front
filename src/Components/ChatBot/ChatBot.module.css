@@ -33,12 +33,16 @@
 }
 
 .chatArea {
-  flex: 1;
+  flex: 1 1 0%;
   overflow-y: auto;
-  padding: 2.5rem 1.5rem 1rem 1.5rem;
+  overflow-x: hidden;
+  padding: 1.2rem 0.5rem 1.2rem 0.5rem;
+  max-height: calc(100vh - 180px);
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  align-items: flex-end;
   background: transparent;
   border-radius: 1.2rem;
   box-shadow: none;
@@ -55,53 +59,46 @@
   }
 }
 
-.userBubble {
-  align-self: flex-end;
-  background: var(--form_color);
-  color: #fff;
-  padding: 1rem 1.5rem;
+.userBubble, .assistantBubble {
+  display: inline-block;
+  padding: 0.5rem 1.2rem;
   border-radius: 1.5rem 1.5rem 0.7rem 1.5rem;
-  box-shadow: 0 4px 12px rgba(41, 45, 50, 0.15);
   font-size: 1.08rem;
-  max-width: 70%;
+  max-width: 60vw;
+  min-width: 40px;
   margin-bottom: 0.5rem;
   word-break: break-word;
   position: relative;
-  border: 1.5px solid var(--fourth_color);
+  border: none;
   animation: bubbleInRight 0.5s cubic-bezier(.23,1.01,.32,1);
   transition: var(--theme_transition), box-shadow 0.2s;
   backdrop-filter: blur(8px);
+  box-shadow: none;
+  background: none;
+}
+.userBubble {
+  background: var(--form_color);
+  color: #fff;
+  border-radius: 1.5rem 1.5rem 0.7rem 1.5rem;
+}
+.assistantBubble {
+  background: var(--feature_cards_color);
+  color: var(--text_color);
+  border-radius: 1.5rem 1.5rem 1.5rem 0.7rem;
+  align-self: flex-start;
 }
 
 .userBubble:hover {
   box-shadow: 0 4px 16px 0 var(--fourth_color);
 }
 
-.assistantBubble {
-  align-self: flex-start;
-  background: var(--feature_cards_color);
-  color: var(--text_color);
-  padding: 1rem 1.5rem;
-  border-radius: 1.5rem 1.5rem 1.5rem 0.7rem;
-  box-shadow: 0 4px 12px rgba(41, 45, 50, 0.15);
-  font-size: 1.08rem;
-  max-width: 70%;
-  margin-bottom: 0.5rem;
-  word-break: break-word;
-  position: relative;
-  border: 1.5px solid var(--form_color);
-  animation: bubbleInLeft 0.5s cubic-bezier(.23,1.01,.32,1);
-  transition: var(--theme_transition), box-shadow 0.2s;
-  backdrop-filter: blur(8px);
-}
-
 .assistantBubble:hover {
   box-shadow: 0 4px 16px 0 var(--form_color);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 900px) {
   .userBubble, .assistantBubble {
-    max-width: 95%;
+    max-width: 90vw;
     font-size: 0.98rem;
     padding: 0.6rem 0.8rem;
   }
@@ -290,8 +287,7 @@
 .userBubble {
   background: var(--form_color);
   color: #fff;
-  border: 1.5px solid var(--fourth_color);
-  transition: var(--theme_transition);
+  border-radius: 1.5rem 1.5rem 0.7rem 1.5rem;
 }
 [data-theme="dark"] .userBubble {
   background: var(--form_color);
@@ -301,14 +297,13 @@
 [data-theme="light"] .userBubble {
   background: var(--form_color);
   color: #fff;
-  border: 1.5px solid var(--fourth_color);
+  border-radius: 1.5rem 1.5rem 0.7rem 1.5rem;
 }
 
 .assistantBubble {
   background: var(--feature_cards_color);
   color: var(--text_color);
-  border: 1.5px solid var(--form_color);
-  transition: var(--theme_transition);
+  border-radius: 1.5rem 1.5rem 1.5rem 0.7rem;
 }
 [data-theme="dark"] .assistantBubble {
   background: var(--feature_cards_color);
@@ -318,7 +313,7 @@
 [data-theme="light"] .assistantBubble {
   background: var(--feature_cards_color);
   color: var(--text_color);
-  border: 1.5px solid var(--form_color);
+  border-radius: 1.5rem 1.5rem 1.5rem 0.7rem;
 }
 
 [data-theme="dark"] .sendButton {
@@ -351,4 +346,78 @@
 
 .animate-spin {
   animation: spin 1s linear infinite;
+}
+
+.userBubbleRight {
+  display: flex;
+  justify-content: flex-end;
+}
+.assistantBubbleLeft {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.bubbleContent {
+  display: inline-block;
+  max-width: 80vw;
+  min-width: 40px;
+  padding: 0.7rem 1.1rem;
+  border-radius: 1.2rem;
+  font-size: 1.08rem;
+  word-break: break-word;
+  box-shadow: 0 2px 8px 0 rgba(41, 45, 50, 0.08);
+  margin-bottom: 0.2rem;
+}
+.userBubble .bubbleContent {
+  background: var(--form_color);
+  color: #fff;
+  border-bottom-right-radius: 0.3rem;
+  border-top-right-radius: 1.2rem;
+  border-top-left-radius: 1.2rem;
+  border-bottom-left-radius: 1.2rem;
+}
+.assistantBubble .bubbleContent {
+  background: var(--feature_cards_color);
+  color: var(--text_color);
+  border-bottom-left-radius: 0.3rem;
+  border-top-right-radius: 1.2rem;
+  border-top-left-radius: 1.2rem;
+  border-bottom-right-radius: 1.2rem;
+}
+
+/* Spinner styles */
+.spinner {
+  display: inline-block;
+  width: 36px;
+  height: 36px;
+  border: 4px solid rgba(0,0,0,0.1);
+  border-top: 4px solid var(--form_color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@media (max-width: 600px) {
+  .bubbleContent {
+    max-width: 95vw;
+    font-size: 1rem;
+    padding: 0.5rem 0.7rem;
+  }
+  .chatArea {
+    padding: 0.5rem 0.2rem 0.5rem 0.2rem;
+    max-height: calc(100vh - 120px);
+  }
+}
+
+[data-theme="dark"] .userBubble .bubbleContent {
+  background: var(--form_color);
+  color: #fff;
+}
+[data-theme="dark"] .assistantBubble .bubbleContent {
+  background: #23273aee;
+  color: var(--text_color);
 }
