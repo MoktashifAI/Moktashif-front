@@ -174,21 +174,134 @@
   background: transparent !important;
 }
 
-.fileChip, .replyChip {
-  display: inline-flex;
-  align-items: center;
-  background: var(--form_color);
-  color: #fff;
-  border-radius: 1.2rem;
-  padding: 0.3rem 0.9rem;
-  margin: 0.2rem 0.5rem 0.2rem 0;
-  font-size: 0.98rem;
-  box-shadow: 0 1px 4px rgba(41, 45, 50, 0.10);
-  border: 1.2px solid var(--fourth_color);
-  transition: var(--theme_transition), box-shadow 0.2s;
+.fileChip, .fileChipSuccess {
+    display: inline-flex;
+    align-items: center;
+    background: var(--form_color);
+    color: #fff;
+    border-radius: 1.2rem;
+    padding: 0.3rem 0.9rem;
+    margin: 0.2rem 0.5rem 0.2rem 0;
+    font-size: 0.98rem;
+    box-shadow: 0 1px 4px rgba(41, 45, 50, 0.10);
+    border: 1.2px solid var(--fourth_color);
+    transition: var(--theme_transition), box-shadow 0.2s;
+    min-height: 2.2rem;
+    gap: 0.7rem;
+    position: relative;
+    max-width: 420px;
+    width: 100%;
+    min-width: 180px;
 }
-.fileChip:hover, .replyChip:hover {
-  box-shadow: 0 4px 16px 0 var(--fourth_color);
+@media (max-width: 600px) {
+    .fileChip, .fileChipSuccess {
+        max-width: 98vw;
+    }
+}
+.uploadingStatus {
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--fourth_color);
+  background: rgba(92, 135, 255, 0.10);
+  border-radius: 1rem;
+  padding: 0.1rem 0.8rem 0.1rem 0.5rem;
+  margin-left: 0.7rem;
+  font-size: 1rem;
+  box-shadow: 0 1px 4px 0 rgba(92, 135, 255, 0.07);
+}
+
+.uploadingText {
+  font-weight: 600;
+  margin-left: 0.2rem;
+  letter-spacing: 0.01em;
+}
+
+.uploadingDots {
+  display: inline-block;
+  margin-left: 0.1rem;
+  width: 1.2em;
+  text-align: left;
+}
+
+@keyframes blink {
+  0% { opacity: 0.2; }
+  20% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+.dot {
+  display: inline-block;
+  font-size: 1.2em;
+  line-height: 1;
+  animation: blink 1.4s infinite both;
+}
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+.spinnerIcon {
+  margin-right: 0.3rem;
+  font-size: 1em;
+  animation: spin 1s linear infinite;
+}
+
+.fileChip:hover {
+    box-shadow: 0 4px 16px 0 var(--fourth_color);
+}
+.fileIcon {
+    color: var(--form_color);
+    font-size: 1.2rem;
+    margin-right: 0.3rem;
+}
+.fileChipSuccess {
+    background: linear-gradient(90deg, rgba(34,197,94,0.08) 0%, rgba(34,197,94,0.03) 100%);
+    border: 1.5px solid #22c55e;
+    box-shadow: 0 2px 12px 0 rgba(34,197,94,0.10);
+    transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+.successStatus {
+    color: #22c55e;
+    font-size: 0.98rem;
+    margin-left: 0.7rem;
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    background: none;
+    border-radius: 0.5rem;
+    padding: 0 0.3rem;
+    animation: fadeInSuccess 0.5s cubic-bezier(.23,1.01,.32,1);
+}
+.errorStatus {
+    color: #ef4444;
+    font-size: 0.98rem;
+    margin-left: 0.7rem;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+}
+.statusIcon {
+    margin-right: 0.3rem;
+    font-size: 1.1rem;
+}
+.progressBar {
+    width: 100px;
+    height: 4px;
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: 2px;
+    margin: 0 0.7rem;
+    overflow: hidden;
+}
+.progressFill {
+    height: 100%;
+    background-color: var(--form_color);
+    transition: width 0.3s ease;
+    border-radius: 2px;
+}
+[data-theme="dark"] .progressBar {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+[data-theme="dark"] .progressFill {
+    background-color: var(--form_color);
 }
 
 @media (max-width: 600px) {
@@ -217,6 +330,10 @@
 @keyframes popIn {
   0% { opacity: 0; transform: scale(0.7); }
   100% { opacity: 1; transform: scale(1); }
+}
+@keyframes fadeInSuccess {
+    0% { opacity: 0; transform: scale(0.95); }
+    100% { opacity: 1; transform: scale(1); }
 }
 
 /* Dark mode overrides */
@@ -420,4 +537,48 @@
 [data-theme="dark"] .assistantBubble .bubbleContent {
   background: #23273aee;
   color: var(--text_color);
+}
+
+.editInput {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--form_color);
+    border-radius: 0.5rem;
+    background: var(--navbar_background);
+    color: var(--text_color);
+    font-size: 1rem;
+    transition: var(--theme_transition), border-color 0.2s;
+}
+
+.editInput:focus {
+    outline: none;
+    border-color: var(--form_color);
+    box-shadow: 0 0 0 2px rgba(var(--form_color), 0.2);
+}
+
+.errorInput {
+    border-color: #ef4444;
+}
+
+.errorInput:focus {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.errorMessage {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background-color: rgba(239, 68, 68, 0.1);
+    border-radius: 0.25rem;
+}
+
+[data-theme="dark"] .editInput {
+    background: var(--navbar_background);
+    color: var(--text_color);
+}
+
+[data-theme="dark"] .errorMessage {
+    background-color: rgba(239, 68, 68, 0.2);
 }

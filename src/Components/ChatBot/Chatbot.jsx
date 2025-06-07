@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Sidebar from './Sidebar';
-import { FaPaperclip, FaHistory, FaSpinner } from 'react-icons/fa';
+import { FaPaperclip, FaHistory, FaSpinner, FaFileAlt, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { FiArrowUp, FiGlobe, FiFile } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import CyberBackgroundChatBot from './CyberBackgroundChatBot';
@@ -73,6 +73,13 @@ export default function Chatbot() {
     const [previousFiles, setPreviousFiles] = useState([]);
     const [loadingPreviousFiles, setLoadingPreviousFiles] = useState(false);
     const location = useLocation();
+    const [streamingProgress, setStreamingProgress] = useState(0);
+    const [streamingError, setStreamingError] = useState(null);
+    const abortControllerRef = useRef(null);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadError, setUploadError] = useState(null);
+    const [isCooldown, setIsCooldown] = useState(false);
+    const cooldownTimeoutRef = useRef(null);
 
     // Define functions that need to be used by other functions
     const handleNewChat = async (title = 'New Conversation') => {
@@ -258,12 +265,55 @@ export default function Chatbot() {
         return singleLine.length > maxLen ? singleLine.slice(0, maxLen) + '...' : singleLine;
     };
 
-    // Streaming send message
-    const handleSendMessage = async (e) => {
+    // Improved streaming handler
+    const handleStreamingResponse = async (response) => {
+        if (!response.body) {
+            throw new Error('No response body');
+        }
+
+        const reader = response.body.getReader();
+        let partial = '';
+        let totalBytes = 0;
+        const contentLength = response.headers.get('Content-Length');
+        const expectedLength = contentLength ? parseInt(contentLength, 10) : null;
+
+        try {
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                
+                totalBytes += value.length;
+                if (expectedLength) {
+                    setStreamingProgress(Math.round((totalBytes / expectedLength) * 100));
+                }
+                
+                const chunk = new TextDecoder().decode(value);
+                partial += chunk;
+                setStreamingResponse(partial);
+            }
+        } catch (error) {
+            setStreamingError('Error reading stream: ' + error.message);
+            throw error;
+        } finally {
+            setStreamingProgress(0);
+        }
+    };
+
+    // Remove handleSendMessage function and update handleSubmit to handle both cases
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!message.trim()) return;
+        if (!message.trim() || isLoading || isCooldown) return;
+        
+        setAutoSearchActive(false);
+        setReplyTo(null);
+        setStreamingError(null);
+        setStreamingProgress(0);
         setIsLoading(true);
         setError('');
+        
+        // Create new AbortController for this request
+        abortControllerRef.current = new AbortController();
+        
         let convId = conversationId;
         try {
             // If no conversationId, create a new conversation first
@@ -271,7 +321,7 @@ export default function Chatbot() {
                 const createResp = await api.post('/conversations/new', { title: 'New Conversation' });
                 if (createResp.data && createResp.data.conversation) {
                     convId = createResp.data.conversation.id;
-                    setConversations(prev => [createResp.data.conversation, ...prev]);
+                    setConversations([createResp.data.conversation]); // Only set the new conversation
                     setConversationId(convId);
                 } else {
                     setError('Failed to create new conversation.');
@@ -280,86 +330,33 @@ export default function Chatbot() {
                 }
             }
 
-            const payload = {
-                message,
-                force_web_search: webSearchEnabled,
-                replyTo: replyTo?.msg ? {
+            // Only append the user message
+            const userMessage = {
+                role: 'user',
+                content: message,
+            };
+            if (replyTo && replyTo.msg) {
+                userMessage.replyTo = {
                     index: replyTo.index,
-                    content: replyTo.msg.content,
-                    isCurrentVersion: true
-                } : undefined,
-                file_id: uploadedFile?.file_id || null
-            };
-
-            const response = await api.post(
-                `/chat/${convId}`,
-                payload,
-                {
-                    responseType: 'text',
-                }
-            );
-
-            // Update messages before any navigation
-            setMessages(prev => [
-                ...prev,
-                { role: 'user', content: message },
-                { role: 'assistant', content: response.data }
-            ]);
+                    content: replyTo.msg.content
+                };
+            }
+            const fileId = uploadedFile?.file_id || null;
+            if (uploadedFileDisplay && fileId) {
+                userMessage.hasFile = true;
+                userMessage.fileName = uploadedFileDisplay;
+                userMessage.file_id = fileId;
+            }
+            setMessages(prevMessages => [...prevMessages, userMessage]);
             setMessage('');
-            setWebSearchEnabled(false);
-            setReplyTo(null);
-            if (uploadedFile) {
-                setUploadedFile(null);
-                setUploadedFileDisplay(null);
-                setFileLocked(false);
-            }
-            await fetchConversation(convId);
-        } catch (err) {
-            console.error('Error sending message:', err);
-            if (err.response?.status === 404) {
-                setError('Conversation not found. Creating a new one...');
-                handleNewChat();
-            } else {
-                setError('Failed to send message. Please try again.');
-            }
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Refactor handleSubmit to use axios for streaming if possible
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!message.trim() || !conversationId) return;
-        setAutoSearchActive(false);
-        setReplyTo(null);
-        const userMessage = {
-            role: 'user',
-            content: message,
-        };
-        if (replyTo && replyTo.msg) {
-            userMessage.replyTo = {
-                index: replyTo.index,
-                content: replyTo.msg.content
-            };
-        }
-        const fileId = uploadedFile?.file_id || null;
-        if (uploadedFileDisplay && fileId) {
-            userMessage.hasFile = true;
-            userMessage.fileName = uploadedFileDisplay;
-            userMessage.file_id = fileId;
-        }
-        setMessages(prevMessages => [...prevMessages, userMessage]);
-        setMessage('');
-        setIsLoading(true);
-        setStreamingResponse('');
-        try {
+            setStreamingResponse('');
+            
             const endpoint = webSearchEnabled
-                ? `/conversations/${conversationId}/web_search`
-                : `/chat/${conversationId}`;
+                ? `/conversations/${convId}/web_search`
+                : `/chat/${convId}`;
             const payloadData = {
                 message,
-                force_web_search: false,
+                force_web_search: webSearchEnabled,
                 replyTo: replyTo?.msg ? {
                     index: replyTo.index,
                     content: replyTo.msg.content,
@@ -374,34 +371,41 @@ export default function Chatbot() {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('userToken')}`
                 },
-                body: JSON.stringify(payloadData)
+                body: JSON.stringify(payloadData),
+                signal: abortControllerRef.current.signal
             });
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            if (!response.body) throw new Error('No response body');
-            const reader = response.body.getReader();
-            let partial = '';
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-                const chunk = new TextDecoder().decode(value);
-                partial += chunk;
-                setStreamingResponse(partial);
-            }
-            setStreamingResponse('');
+            await handleStreamingResponse(response);
+            
             const wasWebSearchUsed = webSearchEnabled || response.headers.get('X-Web-Search-Used') === 'true';
             if (wasWebSearchUsed) {
                 setAutoSearchActive(true);
             }
-            await fetchConversation();
+            // After streaming, update messages from backend only (do not append assistant response manually)
+            setStreamingResponse('');
+            await fetchConversation(convId);
             setWebSearchEnabled(false);
             setUploadedFile(null);
             setUploadedFileDisplay(null);
             setFileLocked(false);
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Request was aborted');
+                return;
+            }
+            
+            // Handle 429 Too Many Requests
+            if (error.message.includes('429') || error.response?.status === 429) {
+                setError('You are sending messages too quickly. Please wait a few seconds and try again.');
+                setIsCooldown(true);
+                cooldownTimeoutRef.current = setTimeout(() => setIsCooldown(false), 5000);
+                return;
+            }
+            
             console.error('Error sending message:', error);
             if (error.message.includes('404')) {
                 setError('Conversation not found. Creating a new one...');
@@ -411,41 +415,97 @@ export default function Chatbot() {
             }
         } finally {
             setIsLoading(false);
+            setStreamingProgress(0);
+            abortControllerRef.current = null;
         }
     };
 
-    // --- File upload ---
+    // Improved file upload handler
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file || !conversationId) return;
+        
         setUploading(true);
         setUploadStatus('');
+        setUploadProgress(0);
+        setUploadError(null);
+        
         try {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('conversation_id', conversationId);
+            
             const response = await api.post('/upload', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    setUploadProgress(percentCompleted);
+                },
             });
+            
             const fileObj = {
                 file_id: response.data.file_id,
                 name: file.name,
-                display_name: response.data.filename || file.name
+                display_name: response.data.filename || file.name,
+                size: file.size,
+                type: file.type,
+                lastModified: file.lastModified
             };
+            
             setUploadedFile(fileObj);
             setUploadedFileDisplay(response.data.filename || file.name);
-            setUploadStatus(response.data.msg);
+            setUploadStatus('Upload successful');
             setFileLocked(false);
+            
+            // Add file to previous files list
+            setPreviousFiles(prev => [fileObj, ...prev]);
+            
         } catch (err) {
             if (handleAuthError(err, navigate)) return;
-            setUploadStatus('Upload failed: ' + (err.response?.data?.msg || err.message));
+            const errorMessage = err.response?.data?.msg || err.message;
+            setUploadError(errorMessage);
+            setUploadStatus('Upload failed: ' + errorMessage);
             setUploadedFile(null);
             setUploadedFileDisplay(null);
         } finally {
             setUploading(false);
+            setUploadProgress(0);
         }
+    };
+
+    // Add file validation
+    const validateFile = (file) => {
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        const allowedTypes = ['.txt', '.json', '.pdf', '.docx'];
+        const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+        
+        if (file.size > maxSize) {
+            return 'File size exceeds 10MB limit';
+        }
+        
+        if (!allowedTypes.includes(fileExtension)) {
+            return 'File type not supported. Please upload .txt, .json, .pdf, or .docx files';
+        }
+        
+        return null;
+    };
+
+    // Update file input handler to include validation
+    const handleFileInputChange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const validationError = validateFile(file);
+        if (validationError) {
+            setUploadError(validationError);
+            setUploadStatus(validationError);
+            e.target.value = ''; // Clear the input
+            return;
+        }
+        
+        handleFileUpload(e);
     };
 
     const clearUploadedFile = () => {
@@ -537,29 +597,89 @@ export default function Chatbot() {
         }
     };
 
-    // Edit submit handler (calls backend)
+    // Improved message editing with validation
     const handleEditSubmit = async (index) => {
-        if (!editingMsgValue.trim()) return;
+        if (!editingMsgValue.trim()) {
+            setEditError('Message cannot be empty');
+            return;
+        }
+
+        // Validate message length
+        if (editingMsgValue.length > 4000) {
+            setEditError('Message is too long (max 4000 characters)');
+            return;
+        }
+
+        // Check if message is unchanged
+        const originalMessage = messages[index];
+        if (originalMessage.content === editingMsgValue.trim()) {
+            setEditingMsgIdx(null);
+            setEditingMsgValue('');
+            return;
+        }
+
         setEditLoading(true);
         setEditError('');
+
         try {
             const response = await api.put(
                 `/conversations/${conversationId}/messages/${index}/edit`,
-                { content: editingMsgValue },
+                { 
+                    content: editingMsgValue.trim(),
+                    original_content: originalMessage.content
+                },
             );
+
             if (response.data && response.data.conversation) {
                 setCurrentConversation(response.data.conversation);
                 setMessages(response.data.conversation.messages || []);
                 setEditingMsgIdx(null);
                 setEditingMsgValue('');
                 setPairVersionIdx({});
+                
+                // Show success message
+                setUploadStatus('Message edited successfully');
+                setTimeout(() => setUploadStatus(''), 3000);
             }
         } catch (err) {
             if (handleAuthError(err, navigate)) return;
-            setEditError(err?.response?.data?.msg || 'Failed to edit message');
+            
+            // Handle specific error cases
+            if (err.response?.status === 409) {
+                setEditError('Message was modified by another user. Please refresh and try again.');
+            } else if (err.response?.status === 403) {
+                setEditError('You do not have permission to edit this message.');
+            } else {
+                setEditError(err?.response?.data?.msg || 'Failed to edit message. Please try again.');
+            }
         } finally {
             setEditLoading(false);
         }
+    };
+
+    // Add message edit validation
+    const validateEditMessage = (content) => {
+        if (!content.trim()) {
+            return 'Message cannot be empty';
+        }
+        if (content.length > 4000) {
+            return 'Message is too long (max 4000 characters)';
+        }
+        return null;
+    };
+
+    // Update message edit input handler
+    const handleEditInputChange = (e) => {
+        const newValue = e.target.value;
+        const validationError = validateEditMessage(newValue);
+        
+        if (validationError) {
+            setEditError(validationError);
+        } else {
+            setEditError('');
+        }
+        
+        setEditingMsgValue(newValue);
     };
 
     // Version toggle handler for user+assistant pair
@@ -732,19 +852,25 @@ export default function Chatbot() {
         const incomingMessage = searchParams.get('message');
         
         if (incomingMessage) {
-            // Start a new chat with the incoming message as if user typed it
             const sendInitialMessage = async () => {
                 setMessage("");
                 setIsLoading(true);
                 setError("");
-                let convId = conversationId;
+                let convId = null;
                 try {
-                    // If no conversationId, create a new conversation first
-                    if (!convId) {
+                    // Always fetch the latest conversations from backend
+                    const response = await api.get('/conversations');
+                    let userConvs = sortConversations(response.data.conversations || []);
+                    setConversations(userConvs);
+
+                    if (userConvs.length > 0) {
+                        convId = userConvs[0].id;
+                        setConversationId(convId);
+                    } else {
                         const createResp = await api.post('/conversations/new', { title: 'New Conversation' });
                         if (createResp.data && createResp.data.conversation) {
                             convId = createResp.data.conversation.id;
-                            setConversations(prev => [createResp.data.conversation, ...prev]);
+                            setConversations([createResp.data.conversation]);
                             setConversationId(convId);
                         } else {
                             setError('Failed to create new conversation.');
@@ -753,6 +879,7 @@ export default function Chatbot() {
                         }
                     }
 
+                    // Send the message in the selected conversation
                     const payload = {
                         message: incomingMessage,
                         force_web_search: false,
@@ -760,25 +887,16 @@ export default function Chatbot() {
                         file_id: null
                     };
 
-                    const response = await api.post(
-                        `/chat/${convId}`,
-                        payload,
-                        {
-                            responseType: 'text',
-                        }
-                    );
+                    await api.post(`/chat/${convId}`, payload, { responseType: 'text' });
 
-                    setMessages(prev => [
-                        ...prev,
-                        { role: 'user', content: incomingMessage },
-                        { role: 'assistant', content: response.data }
-                    ]);
+                    // Fetch the updated conversation (this will include the user and assistant messages)
+                    await fetchConversation(convId);
+
                     setWebSearchEnabled(false);
                     setReplyTo(null);
                     setUploadedFile(null);
                     setUploadedFileDisplay(null);
                     setFileLocked(false);
-                    await fetchConversation(convId);
                 } catch (err) {
                     console.error('Error sending message:', err);
                     if (err.response?.status === 404) {
@@ -796,6 +914,24 @@ export default function Chatbot() {
             sendInitialMessage();
         }
     }, [location, navigate]);
+
+    // Add cleanup for abort controller
+    useEffect(() => {
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, []);
+
+    // Cleanup cooldown timer on unmount
+    useEffect(() => {
+        return () => {
+            if (cooldownTimeoutRef.current) {
+                clearTimeout(cooldownTimeoutRef.current);
+            }
+        };
+    }, []);
 
     return (
         <div className={style.chatContainer} style={{position: 'relative', overflow: 'hidden'}}>
@@ -891,7 +1027,7 @@ export default function Chatbot() {
                     </div>
                 </div>
                 {/* File upload and message input row */}
-                <form onSubmit={handleSendMessage} className={style.inputBar}>
+                <form onSubmit={handleSubmit} className={style.inputBar}>
                         {/* Attachment icons */}
                             <button
                                 type="button"
@@ -915,7 +1051,7 @@ export default function Chatbot() {
                             ref={fileInputRef}
                             type="file"
                             accept=".txt,.json,.pdf,.docx"
-                            onChange={handleFileUpload}
+                            onChange={handleFileInputChange}
                             style={{ display: 'none' }}
                         />
                         <button
@@ -940,7 +1076,7 @@ export default function Chatbot() {
                         />
                         <button
                             type="submit"
-                            disabled={isLoading || !message.trim()}
+                            disabled={isLoading || !message.trim() || isCooldown}
                         className={style.sendButton}
                             aria-label="Send message"
                         >
@@ -949,10 +1085,41 @@ export default function Chatbot() {
                     </form>
                 {/* File/reply chips above input */}
                 {uploadedFileDisplay && !fileLocked && (
-                    <div className={style.fileChip}>
+                    <div className={
+                        uploadStatus && uploadStatus.includes('success') && !uploading
+                            ? `${style.fileChip} ${style.fileChipSuccess}`
+                            : style.fileChip
+                    }>
+                        <FaFileAlt className={style.fileIcon} />
                         <span className="truncate max-w-[180px]">{uploadedFileDisplay}</span>
-                        {uploadStatus && (
-                            <span className={`ml-3 text-xs ${uploadStatus.includes('success') ? 'text-green-600' : 'text-red-600'}`}>{uploadStatus}</span>
+                        {uploading && (
+                            <span className={style.uploadingStatus}>
+                                <FaSpinner className={style.spinnerIcon} />
+                                Uploading
+                                <span className="uploadingDots">
+                                    <span className="dot">.</span>
+                                    <span className="dot">.</span>
+                                    <span className="dot">.</span>
+                                </span>
+                            </span>
+                        )}
+                        {uploadProgress > 0 && uploadProgress < 100 && (
+                            <div className={style.progressBar}>
+                                <div 
+                                    className={style.progressFill} 
+                                    style={{ width: `${uploadProgress}%` }}
+                                />
+                            </div>
+                        )}
+                        {uploadStatus && uploadStatus.includes('success') && !uploading && (
+                            <span className={style.successStatus}>
+                                <FaCheckCircle className={style.statusIcon} /> {uploadStatus}
+                            </span>
+                        )}
+                        {uploadError && (
+                            <span className={style.errorStatus}>
+                                <FaTimesCircle className={style.statusIcon} /> {uploadError}
+                            </span>
                         )}
                         <button
                             onClick={clearUploadedFile}
@@ -961,7 +1128,7 @@ export default function Chatbot() {
                         >
                             ×
                         </button>
-                </div>
+                    </div>
                 )}
                 {replyTo && (
                     <div
@@ -990,6 +1157,12 @@ export default function Chatbot() {
             </div>
                 )}
                 {uploading && <span className="text-xs text-blue-600 ml-2">Uploading...</span>}
+                {/* Show cooldown error if present */}
+                {isCooldown && (
+                    <div className={style.errorMessage}>
+                        You are sending messages too quickly. Please wait a few seconds and try again.
+                    </div>
+                )}
             </div>
             {/* Add File Selector Modal */}
             <FileSelector 
