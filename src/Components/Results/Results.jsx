@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import style from "./Results.module.css";
 import VulnerabilityChart from "./VulnerabilityChart";
@@ -9,7 +9,7 @@ import autoTable from "jspdf-autotable";
 import { Helmet } from "react-helmet";
 
 export default function Results() {
-  const { vulnsBackendData, setVulnsBackendData, scanDate, headers } = useContext(GlobalContext);
+  const { vulnsBackendData, setVulnsBackendData, scanDate, headers, setscanDate } = useContext(GlobalContext);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     critical: 0,
@@ -19,18 +19,59 @@ export default function Results() {
   });
   const [modalContent, setModalContent] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [error, setError] = useState(null);
+  const [sortByRisk, setSortByRisk] = useState(false);
+  const [filterRisk, setFilterRisk] = useState("all");
+
+  // Load from localStorage on mount if available
+  useEffect(() => {
+    const stored = localStorage.getItem("vulnsBackendData");
+    const storedScanDate = localStorage.getItem("scanDate");
+    if (!vulnsBackendData && stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setVulnsBackendData(parsed);
+        updateVulnerabilities(parsed);
+        setLoading(false);
+      } catch (e) {
+        // ignore parse error
+      }
+    }
+    // If scanDate is not set in context but exists in localStorage, set it
+    if (!scanDate && storedScanDate) {
+      try {
+        // Only set if not already set
+        if (!scanDate) {
+          // setscanDate is from context
+          setscanDate(storedScanDate);
+        }
+      } catch (e) {
+        // ignore parse error
+      }
+    }
+  }, []);
+
+  // Store to localStorage whenever vulnsBackendData or scanDate changes
   useEffect(() => {
     if (vulnsBackendData) {
+      localStorage.setItem("vulnsBackendData", JSON.stringify(vulnsBackendData));
       updateVulnerabilities(vulnsBackendData);
+      setLoading(false);
+      // Dispatch custom event so Navbar updates results button immediately
+      window.dispatchEvent(new Event("vulnsBackendDataUpdated"));
     }
-  }, [vulnsBackendData]);
+    if (scanDate) {
+      localStorage.setItem("scanDate", scanDate);
+    }
+  }, [vulnsBackendData, scanDate]);
 
   const updateVulnerabilities = (data) => {
-    setLoading(false);
     const newStats = data.reduce(
       (acc, vuln) => {
-        const severity = vuln.severity.toLowerCase();
-        acc[severity] = (acc[severity] || 0) + 1;
+        const severity = vuln.severity?.toLowerCase();
+        if (severity && acc[severity] !== undefined) {
+          acc[severity] = (acc[severity] || 0) + 1;
+        }
         return acc;
       },
       {
@@ -43,58 +84,64 @@ export default function Results() {
     setStats(newStats);
   };
 
-  const handleRefresh = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get('http://localhost:3000/vulns/getScanHistoryForSpecificUser', { headers });
-      console.log(response.data?.data.vulnerabilities);
-      if (response.data.success === true) {
-        setVulnsBackendData(response.data?.data.vulnerabilities);
-        updateVulnerabilities(response.data?.data.vulnerabilities);
-      }
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-      setLoading(false);
+  // Helper to get the best scan date
+  const getBestScanDate = () => {
+    if (scanDate && !Array.isArray(scanDate) && !isNaN(Date.parse(scanDate))) {
+      return scanDate;
     }
+    // Fallback: try to get createdAt from vulnerabilities data
+    if (vulnsBackendData && vulnsBackendData.length > 0) {
+      const firstVuln = vulnsBackendData[0];
+      if (firstVuln.createdAt && !isNaN(Date.parse(firstVuln.createdAt))) {
+        return firstVuln.createdAt;
+      }
+    }
+    return null;
   };
 
-  const generatePDFReport = () => {
+  const generatePDFReport = async () => {
     const doc = new jsPDF();
 
-    // Add title
-    doc.setFontSize(20);
-    doc.text("Vulnerability Scan Report", 14, 15);
+    // Centered header
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Vulnerability Scan Report', 105, 20, { align: 'center' });
 
     // Add scan date
     doc.setFontSize(12);
-    doc.text(`Scan Date: ${new Date().toLocaleString()}`, 14, 25);
+    doc.setFont('helvetica', 'normal');
+    const bestDate = getBestScanDate();
+    doc.text(`Scan Date: ${bestDate ? new Date(bestDate).toLocaleString() : new Date().toLocaleString()}`, 14, 30);
 
     // Add summary section
     doc.setFontSize(16);
-    doc.text("Summary", 14, 40);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary', 14, 45);
 
     // Add vulnerability counts
     doc.setFontSize(12);
-    doc.text(`Critical: ${stats.critical}`, 14, 50);
-    doc.text(`High: ${stats.high}`, 14, 60);
-    doc.text(`Medium: ${stats.medium}`, 14, 70);
-    doc.text(`Low: ${stats.low}`, 14, 80);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Critical: ${stats.critical}`, 14, 55);
+    doc.text(`High: ${stats.high}`, 14, 65);
+    doc.text(`Medium: ${stats.medium}`, 14, 75);
+    doc.text(`Low: ${stats.low}`, 14, 85);
 
     // Add findings table
     doc.setFontSize(16);
-    doc.text("Detailed Findings", 14, 100);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Detailed Findings', 14, 105);
 
     // Prepare table data
     const tableData = vulnsBackendData.map(vuln => [
       vuln.category,
       vuln.severity,
-      vuln.description || "No description available",
-      vuln.remediation || "No remediation available"
+      vuln.description || 'No description available',
+      vuln.remediation || 'No remediation available'
     ]);
 
     // Add table using autoTable
     autoTable(doc, {
-      startY: 110,
+      startY: 115,
       head: [['Finding', 'Risk Level', 'Description', 'Remediation']],
       body: tableData,
       theme: 'grid',
@@ -107,6 +154,13 @@ export default function Results() {
         3: { cellWidth: 70 }
       }
     });
+
+    // Add beautiful small watermark at the bottom center
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(92, 135, 255); // #5c87ff
+    doc.text('Moktashif', 105, 285, { align: 'center' });
+    doc.setTextColor(0, 0, 0); // Reset color
 
     // Save the PDF
     doc.save('vulnerability-scan-report.pdf');
@@ -153,6 +207,53 @@ export default function Results() {
     );
   };
 
+  // Get displayed vulnerabilities based on sort and filter
+  const getDisplayedVulns = useCallback(() => {
+    let data = vulnsBackendData || [];
+    if (filterRisk !== "all") {
+      data = data.filter(v => v.severity && v.severity.toLowerCase() === filterRisk);
+    }
+    if (sortByRisk) {
+      const order = { critical: 4, high: 3, medium: 2, low: 1 };
+      data = [...data].sort((a, b) => (order[b.severity?.toLowerCase()] || 0) - (order[a.severity?.toLowerCase()] || 0));
+    }
+    return data;
+  }, [vulnsBackendData, sortByRisk, filterRisk]);
+
+  // Export findings as CSV
+  const exportCSV = () => {
+    if (!vulnsBackendData || !vulnsBackendData.length) return;
+    const headers = ['Finding', 'Risk Level', 'Description', 'Remediation'];
+    const rows = vulnsBackendData.map(vuln => [
+      vuln.category,
+      vuln.severity,
+      (vuln.description || '').replace(/\n/g, ' '),
+      (vuln.remediation || '').replace(/\n/g, ' ')
+    ]);
+    const csvContent = [headers, ...rows].map(e => e.map(cell => '"' + (cell || '').replace(/"/g, '""') + '"').join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'vulnerability-scan-results.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Copy findings table as plain text to clipboard
+  const copyTable = () => {
+    if (!vulnsBackendData || !vulnsBackendData.length) return;
+    const headers = ['Finding', 'Risk Level', 'Description', 'Remediation'];
+    const rows = vulnsBackendData.map(vuln => [
+      vuln.category,
+      vuln.severity,
+      (vuln.description || '').replace(/\n/g, ' '),
+      (vuln.remediation || '').replace(/\n/g, ' ')
+    ]);
+    const tableText = [headers, ...rows].map(row => row.join('\t')).join('\n');
+    navigator.clipboard.writeText(tableText);
+  };
+
   return <>
     <Helmet>
       <title>Results</title>
@@ -167,31 +268,58 @@ export default function Results() {
 
         <div className={`${style.header} `}>
           <div className={style.headerContent}>
-            <h1>Scan Results</h1>
+            <h1>Scan Operations</h1>
             <div className={style.scanInfo}>
               <div>
-                <span>Content Type:</span>
-                <span>text/html;charset=UTF-8</span>
-              </div>
-              <div>
-                <span>Last Analysis Date:</span>
-                <span>{scanDate}</span>
+                <span>Scan Date:</span>
+                <span>{(() => { const d = getBestScanDate(); return d ? new Date(d).toLocaleString() : 'N/A'; })()}</span>
               </div>
             </div>
             <div className={style.actions}>
               <button
-                className={style.refreshButton}
-                onClick={handleRefresh}
-                disabled={loading}
+                className={style.actionButton}
+                onClick={() => setSortByRisk(s => !s)}
+                disabled={loading || !vulnsBackendData?.length}
+                title="Sort by Risk Level (Highest to Lowest)"
               >
-                <i className="fas fa-sync-alt"></i> Refresh
+                <i className="fas fa-sort-amount-down-alt"></i> Sort by Risk
               </button>
+              <select
+                className={style.actionButton}
+                value={filterRisk}
+                onChange={e => setFilterRisk(e.target.value)}
+                disabled={loading || !vulnsBackendData?.length}
+                title="Filter by Risk Level"
+                style={{ minWidth: 120 }}
+              >
+                <option value="all">All Risks</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
               <button
                 className={style.reportButton}
-                onClick={generatePDFReport}
+                onClick={async () => await generatePDFReport()}
                 disabled={loading || !vulnsBackendData?.length}
               >
                 <i className="fas fa-file-export"></i> Report
+              </button>
+              <button
+                className={style.actionButton}
+                onClick={exportCSV}
+                disabled={loading || !vulnsBackendData?.length}
+                title="Export as CSV"
+              >
+                <i className="fas fa-file-csv"></i> Export as CSV
+              </button>
+              <button
+                className={style.actionButton}
+                onClick={copyTable}
+                disabled={loading || !vulnsBackendData?.length}
+                title="Copy Table to Clipboard"
+              >
+                <i className="fas fa-copy"></i> Copy Table
               </button>
             </div>
           </div>
@@ -216,21 +344,27 @@ export default function Results() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {error ? (
+                  <tr>
+                    <td colSpan="5" className={style.error}>
+                      <i className="fas fa-exclamation-triangle"></i> {error}
+                    </td>
+                  </tr>
+                ) : loading ? (
                   <tr>
                     <td colSpan="5" className={style.loading}>
                       <span className={style.spinner}></span>
                       Loading results...
                     </td>
                   </tr>
-                ) : !vulnsBackendData?.length ? (
+                ) : !getDisplayedVulns()?.length ? (
                   <tr>
                     <td colSpan="5" className={style.loading}>
                       No vulnerabilities found
                     </td>
                   </tr>
                 ) : (
-                  vulnsBackendData.map((vuln) => (
+                  getDisplayedVulns().map((vuln) => (
                     <tr key={vuln._id}>
                       <td>{vuln.category}</td>
                       <td>

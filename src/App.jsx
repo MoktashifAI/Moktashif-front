@@ -39,7 +39,7 @@ function AppContent() {
         { path: 'home', element: <Home /> },
         { path: 'scanner', element: <ProtectedRoute><ScannerInput /></ProtectedRoute> },
         { path: 'forgetpassword', element: <ForgetPassword /> },
-        { path: 'results', element: <Results /> },
+        { path: 'results', element:<ProtectedRoute><Results /></ProtectedRoute>},
         { path: 'signin', element: <SignIn_SignUp /> },
         { path: 'profile', element: <ProtectedRoute><UserProfile onProfileUpdate={handleProfileUpdate} /></ProtectedRoute> },
         { path: '*', element: <NotFound /> },

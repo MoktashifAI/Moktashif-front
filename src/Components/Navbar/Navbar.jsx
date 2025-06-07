@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { GlobalContext } from "../../Context/GlobalContext.jsx";
 import { useProfile } from '../../Context/ProfileContext';
+import gsap from "gsap";
 
 const DEFAULT_AVATAR = `https://ui-avatars.com/api/?name=User&background=${encodeURIComponent(getComputedStyle(document.documentElement).getPropertyValue('black'))}&color=FFFFFF&size=256`;
 
@@ -26,6 +27,8 @@ export default function Navbar() {
   const { profileData } = useProfile();
   const profilePhoto = profileData?.userImg?.secure_url || DEFAULT_AVATAR;
   const [loading, setLoading] = useState(false);
+  const [showResultsButton, setShowResultsButton] = useState(false);
+  const logoIconRef = useRef(null);
 
   const getUserProfile = useCallback(async () => {
     if (!userToken || !headers) {
@@ -54,16 +57,37 @@ export default function Navbar() {
     getUserProfile();
   }, [getUserProfile]);
 
+  useEffect(() => {
+    // Check localStorage for results
+    const stored = localStorage.getItem("vulnsBackendData");
+    setShowResultsButton(!!(stored && JSON.parse(stored)?.length));
+    // Listen for storage changes (in case results are added/removed in another tab)
+    const handleStorage = () => {
+      const stored = localStorage.getItem("vulnsBackendData");
+      setShowResultsButton(!!(stored && JSON.parse(stored)?.length));
+    };
+    window.addEventListener("storage", handleStorage);
+    // Listen for custom event to update results button immediately in this tab
+    const handleCustomResultsUpdate = () => handleStorage();
+    window.addEventListener("vulnsBackendDataUpdated", handleCustomResultsUpdate);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("vulnsBackendDataUpdated", handleCustomResultsUpdate);
+    };
+  }, []);
+
   const logOut = () => {
     localStorage.removeItem('userToken');
+    localStorage.removeItem('vulnsBackendData');
     setUserToken(null);
     setIsProfileMenuOpen(false);
+    setShowResultsButton(false);
     navigate('/home', { replace: true });
   };
 
   const handleChatInputKeyDown = (e) => {
     if (e.key === "Enter" && chatInput.trim() !== "") {
-      navigate(`/chatbot?query=${encodeURIComponent(chatInput)}`);
+      navigate(`/chatbot?message=${encodeURIComponent(chatInput)}`);
       setChatInput("");
     }
   };
@@ -79,6 +103,32 @@ export default function Navbar() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
+  }, []);
+
+  useEffect(() => {
+    if (logoIconRef.current) {
+      // Entrance and wiggle animation
+      gsap.fromTo(
+        logoIconRef.current,
+        { scale: 0.7, rotate: -60, opacity: 0 },
+        {
+          scale: 1,
+          rotate: -20,
+          opacity: 1,
+          duration: 1,
+          ease: "elastic.out(1, 0.5)",
+          onComplete: () => {
+            gsap.to(logoIconRef.current, {
+              rotate: -10,
+              duration: 1.2,
+              repeat: -1,
+              yoyo: true,
+              ease: "sine.inOut"
+            });
+          }
+        }
+      );
+    }
   }, []);
 
   return (
@@ -104,7 +154,19 @@ export default function Navbar() {
           {/* Logo and Desktop Navigation */}
           <div className="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
             <div className="flex shrink-0 items-center">
-              <Link to="/" className={`cursor-pointer fa-solid fa-bug ${style.navLogo} `} />
+              <Link to="/" className={style.navLogo}>
+                <span ref={logoIconRef} className={style.logoIcon}>
+                  <i 
+                    className="fa-solid fa-bug" 
+                    style={{
+                      fontSize: "2.1rem",
+                      color: "var(--fourth_color)",
+                      transform: "rotate(-20deg)",
+                      display: "inline-block"
+                    }}
+                  ></i>
+                </span>
+              </Link>
             </div>
             {/* Wide Chat Input */}
             <div className={style.chatInputWrapper}>
@@ -124,6 +186,11 @@ export default function Navbar() {
             <div className={style.RightLeftBorder}>
               <Link to={'/about'} className={`${style.about} fa-solid fa-info`}></Link>
               <ThemeMode />
+              {showResultsButton && (
+                <Link to="/results" className={style.resultsNavButton} title="View Results">
+                  <i className="fa-solid fa-list-check"></i>
+                </Link>
+              )}
             </div>
             {/* Profile dropdown */}
             {userToken !== null ? <div className={style.profileMenuContainer} ref={profileMenuRef}>
@@ -143,7 +210,7 @@ export default function Navbar() {
               </button>
             </div> : ''}
             {/* signIn button */}
-            <div className={style.signInContainerStyle}>
+            <div className={`${style.signInContainerStyle}`}>
               {userToken !== null ? (
                 <span onClick={logOut} className={`cursor-pointer ${style.signInStyle}`}>
                   Logout

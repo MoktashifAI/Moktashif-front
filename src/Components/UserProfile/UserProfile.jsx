@@ -34,14 +34,9 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
     const { setProfileData: setProfileDataContext } = useProfile();
     const [nameSaving, setNameSaving] = useState(false);
     const nameInputWrapperRef = useRef(null);
-    const [scanHistory, setScanHistory] = useState(() => {
-        const savedHistory = localStorage.getItem('scanHistory');
-        return savedHistory ? JSON.parse(savedHistory) : [];
-    });
+    const [scanHistory, setScanHistory] = useState([]);
     const [scanLoading, setScanLoading] = useState(false);
-    const [showScanHistory, setShowScanHistory] = useState(() => {
-        return localStorage.getItem('showScanHistory') === 'true';
-    });
+    const [showScanHistory, setShowScanHistory] = useState(false);
     const [expandedCard, setExpandedCard] = useState(null);
     const [modalContent, setModalContent] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
@@ -233,14 +228,11 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
             if (response.data?.success) {
                 const historyData = response.data.data || [];
                 setScanHistory(historyData);
-                localStorage.setItem('scanHistory', JSON.stringify(historyData));
                 setShowScanHistory(true);
-                localStorage.setItem('showScanHistory', 'true');
             }
         } catch (error) {
             setScanHistory([]);
             setShowScanHistory(true);
-            localStorage.setItem('showScanHistory', 'true');
         } finally {
             setScanLoading(false);
         }
@@ -248,7 +240,6 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
 
     const handleCloseScanHistory = () => {
         setShowScanHistory(false);
-        localStorage.setItem('showScanHistory', 'false');
     };
 
     // Delete Account Handler

@@ -193,7 +193,7 @@ export default function Home() {
             </motion.div>
             
             <h1 ref={titleRef} className={style.mainTitle}>
-              <span className={style.highlight}>Moktashif</span>
+              <span className={style.highlight}>MOKTASHIF</span>
               <br />
               <div className={style.animatedSubtitleContainer}>
                 <span ref={animatedTextRef} className={style.animatedText}></span>

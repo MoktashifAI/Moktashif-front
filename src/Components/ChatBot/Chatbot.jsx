@@ -732,25 +732,68 @@ export default function Chatbot() {
         const incomingMessage = searchParams.get('message');
         
         if (incomingMessage) {
-            // Add the message to the chat
-            const newMessage = {
-                role: 'user',
-                content: incomingMessage,
-                timestamp: new Date().toISOString()
+            // Start a new chat with the incoming message as if user typed it
+            const sendInitialMessage = async () => {
+                setMessage("");
+                setIsLoading(true);
+                setError("");
+                let convId = conversationId;
+                try {
+                    // If no conversationId, create a new conversation first
+                    if (!convId) {
+                        const createResp = await api.post('/conversations/new', { title: 'New Conversation' });
+                        if (createResp.data && createResp.data.conversation) {
+                            convId = createResp.data.conversation.id;
+                            setConversations(prev => [createResp.data.conversation, ...prev]);
+                            setConversationId(convId);
+                        } else {
+                            setError('Failed to create new conversation.');
+                            setIsLoading(false);
+                            return;
+                        }
+                    }
+
+                    const payload = {
+                        message: incomingMessage,
+                        force_web_search: false,
+                        replyTo: undefined,
+                        file_id: null
+                    };
+
+                    const response = await api.post(
+                        `/chat/${convId}`,
+                        payload,
+                        {
+                            responseType: 'text',
+                        }
+                    );
+
+                    setMessages(prev => [
+                        ...prev,
+                        { role: 'user', content: incomingMessage },
+                        { role: 'assistant', content: response.data }
+                    ]);
+                    setWebSearchEnabled(false);
+                    setReplyTo(null);
+                    setUploadedFile(null);
+                    setUploadedFileDisplay(null);
+                    setFileLocked(false);
+                    await fetchConversation(convId);
+                } catch (err) {
+                    console.error('Error sending message:', err);
+                    if (err.response?.status === 404) {
+                        setError('Conversation not found. Creating a new one...');
+                        handleNewChat();
+                    } else {
+                        setError('Failed to send message. Please try again.');
+                    }
+                } finally {
+                    setIsLoading(false);
+                }
+                // Clear the URL parameter
+                navigate(location.pathname, { replace: true });
             };
-            
-            setMessages(prev => [...prev, newMessage]);
-            setIsLoading(true);
-            
-            // Clear the URL parameter
-            navigate(location.pathname, { replace: true });
-            
-            // Here you would typically make your API call
-            // For now, we'll simulate a response after 2 seconds
-            setTimeout(() => {
-                setIsLoading(false);
-                // Add your API response handling here
-            }, 2000);
+            sendInitialMessage();
         }
     }, [location, navigate]);
 

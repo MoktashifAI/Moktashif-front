@@ -28,13 +28,28 @@ a {
 }
 
 .navLogo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    margin-left: 10px;
+    margin-right: 10px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.logoIcon {
+    font-size: 2.1rem;
     color: var(--fourth_color);
-    transition: var(--theme_transition);
-    font-size: 1.875rem;
-    opacity: 0.65;
-    margin-top: .2188rem;
-    rotate: -45deg;
-    margin-right: .3125rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s;
+    line-height: 1;
+    filter: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    opacity: 0.5 !important;
 }
 
 .signInContainerStyle {
@@ -157,8 +172,12 @@ a {
     }
 
     .navLogo {
-        display: none;
-        opacity: 0;
+        margin-left: 4px;
+        margin-right: 4px;
+    }
+
+    .logoIcon {
+        font-size: 1.3rem;
     }
 }
 
@@ -328,5 +347,43 @@ a {
 
     to {
         transform: rotate(360deg);
+    }
+}
+
+/* Results icon button - match color with .about and ThemeMode icons */
+.resultsNavButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.75rem;
+    font-size: 1.35rem;
+    border-radius: 50%;
+    padding: 0.35rem 0.5rem;
+    background: transparent;
+    color: var(--fifth_color);
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    border: none;
+    outline: none;
+    cursor: pointer;
+}
+
+.resultsNavButton:hover, .resultsNavButton:focus {
+    background: transparent;
+    color: var(--fifth_color);
+    box-shadow: none;
+}
+
+/* Light mode */
+.light .resultsNavButton {
+    color: var(--fifth_color);
+    background: transparent;
+}
+
+/* Responsive: shrink icon on small screens */
+@media (max-width: 600px) {
+    .resultsNavButton {
+        font-size: 1.1rem;
+        padding: 0.25rem 0.35rem;
+        margin-left: 0.5rem;
     }
 }

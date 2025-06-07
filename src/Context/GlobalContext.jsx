@@ -8,7 +8,7 @@ export let GlobalContext = createContext();
 export default function GlobalContextProvider({ children }) {
     const userContext = useContext(UserContext);
     const [vulnsBackendData, setVulnsBackendData] = useState(null);
-    const [scanDate, setscanDate] = useState([]);
+    const [scanDate, setscanDate] = useState(null);
     const [headers, setHeaders] = useState(null);
 
     useEffect(() => {

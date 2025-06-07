@@ -470,3 +470,164 @@
 .modalBody::-webkit-scrollbar-thumb:hover {
   background: #4a90e2;
 }
+
+/* Add this for filter (select) button improvements */
+.actionButton {
+  /* existing styles */
+}
+
+/* Target only the select filter dropdown */
+.actionButton select,
+select.actionButton {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: var(--feature_cards_color);
+  color: var(--text_color);
+  border: 1px solid #636E97;
+  border-radius: 6px;
+  padding: 0.5rem 2rem 0.5rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-radius 0.2s;
+  position: relative;
+}
+
+.actionButton select:hover,
+select.actionButton:hover {
+  background: #636E97;
+  color: #fff;
+  border-radius: 6px;
+  border: 1px solid #636E97;
+}
+
+/* Custom arrow for select */
+.actionButton select::-ms-expand,
+select.actionButton::-ms-expand {
+  display: none;
+}
+.actionButton select::after,
+select.actionButton::after {
+  content: '';
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  width: 0.8em;
+  height: 0.5em;
+  pointer-events: none;
+  border-left: 0.25em solid transparent;
+  border-right: 0.25em solid transparent;
+  border-top: 0.5em solid #636E97;
+  transform: translateY(-50%);
+}
+
+/* Remove default arrow for Chrome, Firefox, etc. */
+.actionButton select::-webkit-input-placeholder { color: inherit; }
+.actionButton select::-webkit-outer-spin-button,
+.actionButton select::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.actionButton select::-webkit-input-placeholder { color: inherit; }
+.actionButton select::-webkit-search-decoration,
+.actionButton select::-webkit-search-cancel-button,
+.actionButton select::-webkit-search-results-button,
+.actionButton select::-webkit-search-results-decoration {
+  display: none;
+}
+
+/* For Firefox */
+.actionButton select:-moz-focusring {
+  color: transparent;
+  text-shadow: 0 0 0 #000;
+}
+
+/* Light mode overrides for Results page */
+.light .resultsContainer {
+  background: #f7f9fb;
+  color: #23272f;
+}
+
+.light .header,
+.light .summarySection,
+.light .findingsSection {
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(99, 110, 151, 0.08);
+  border-radius: 12px;
+}
+
+.light .headerContent h1,
+.light .findingsHeader h2 {
+  color: #5c87ff;
+}
+
+.light .findingsTable th {
+  background: #eaf1ff;
+  color: #5c87ff;
+  border-bottom: 2px solid #d6e4ff;
+}
+
+.light .findingsTable td {
+  background: #fff;
+  color: #23272f;
+  border-bottom: 1px solid #e3e8f0;
+}
+
+.light .riskBadge {
+  background: #eaf1ff;
+  color: #5c87ff;
+  font-weight: 600;
+}
+.light .riskBadge[style*="background-color: #DC3545"] { background: #ff4d4f !important; color: #fff; }
+.light .riskBadge[style*="background-color: #E94A35"] { background: #ff7a45 !important; color: #fff; }
+.light .riskBadge[style*="background-color: #FFC107"] { background: #ffe066 !important; color: #23272f; }
+.light .riskBadge[style*="background-color: #28A745"] { background: #52c41a !important; color: #fff; }
+
+.light .actionButton,
+.light .reportButton {
+  background: #eaf1ff;
+  color: #5c87ff;
+  border: 1px solid #5c87ff;
+}
+
+.light .actionButton:hover,
+.light .reportButton:hover {
+  background: #5c87ff;
+  color: #fff;
+  border: 1px solid #5c87ff;
+}
+
+.light .actionButton select,
+.light select.actionButton {
+  background: #fff;
+  color: #5c87ff;
+  border: 1px solid #5c87ff;
+}
+
+.light .actionButton select:hover,
+.light select.actionButton:hover {
+  background: #eaf1ff;
+  color: #5c87ff;
+  border: 1px solid #5c87ff;
+}
+
+.light .chartCenter span:first-child {
+  color: #5c87ff;
+}
+
+.light .legendItem span {
+  color: #5c87ff;
+}
+
+.light .modalContent {
+  background: #fff;
+  color: #23272f;
+}
+
+.light .modalHeader {
+  border-bottom: 1px solid #e3e8f0;
+}
+
+.light .modalBody {
+  color: #23272f;
+}
