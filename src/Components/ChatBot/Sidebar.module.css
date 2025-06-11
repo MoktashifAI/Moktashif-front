@@ -16,9 +16,10 @@
   flex-direction: column;
   border-right: 2px solid var(--fourth_color);
   box-shadow: 2px 0 16px 0 rgba(41, 45, 50, 0.08);
-  transition: var(--theme_transition);
-  z-index: 30;
+  transition: var(--theme_transition), width 0.6s cubic-bezier(.23,1.01,.32,1), min-width 0.6s cubic-bezier(.23,1.01,.32,1);
+  overflow: visible !important;
   animation: sidebarSlideIn 0.7s cubic-bezier(.23,1.01,.32,1) 0.1s both;
+  padding-top: 50px;
 }
 
 @media (max-width: 900px) {
@@ -206,5 +207,62 @@
 }
 [data-theme="light"] .newChatBtn {
   background: var(--fourth_color);
+  color: #fff;
+}
+
+.sidebarCollapsed {
+  min-width: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  border: none !important;
+  transition: width 0.45s cubic-bezier(.23,1.01,.32,1), min-width 0.45s cubic-bezier(.23,1.01,.32,1);
+}
+
+.sidebarToggleBtn {
+  position: fixed;
+  top: 80px;
+  left: 300px;
+  z-index: 9999;
+  background-color: var(--feature_cards_color);
+  color: var(--text_color);
+  border: 1.5px solid var(--fourth_color);
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border-top-left-radius: 0px;
+  border-bottom-left-radius: 0px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s, border 0.2s, left 0.6s cubic-bezier(.23,1.01,.32,1);
+  cursor: pointer;
+  border-left: none;
+}
+
+.sidebarToggleBtn.collapsed {
+  left: 0;
+  border-radius: 0 8px 8px 0;
+}
+
+@media (max-width: 900px) {
+  .sidebarCollapsed {
+    min-width: 44px !important;
+    width: 44px !important;
+  }
+  .sidebarToggleBtn {
+    width: 40px;
+    height: 40px;
+    right: -20px;
+    font-size: 22px;
+  }
+}
+[data-theme="dark"] .sidebarToggleBtn {
+  background: linear-gradient(135deg, var(--footer_upper_border), var(--form_color));
+  color: var(--copyRight);
+}
+[data-theme="dark"] .sidebarToggleBtn:hover, [data-theme="dark"] .sidebarToggleBtn:focus {
+  background: linear-gradient(135deg, var(--form_color), var(--footer_upper_border));
   color: #fff;
 }

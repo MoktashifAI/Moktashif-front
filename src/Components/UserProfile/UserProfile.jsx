@@ -7,6 +7,10 @@ import { FaEdit, FaCamera, FaPen, FaSpinner, FaCheck, FaTimes, FaTrash } from 'r
 import { GlobalContext } from '../../Context/GlobalContext';
 import { useProfile } from '../../Context/ProfileContext';
 import { useNavigate } from "react-router-dom";
+import { motion } from 'framer-motion';
+import { confirmAlert } from 'react-confirm-alert';
+import 'react-confirm-alert/src/react-confirm-alert.css';
+
 const DEFAULT_AVATAR = `https://ui-avatars.com/api/?name=User&background=${encodeURIComponent(getComputedStyle(document.documentElement).getPropertyValue('black'))}&color=FFFFFF&size=256`;
 
 function maskEmail(email) {
@@ -42,10 +46,10 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [errorPopup, setErrorPopup] = useState('');
-    const [nameError, setNameError] = useState('');
     const [nameErrorPopup, setNameErrorPopup] = useState('');
     let navigate = useNavigate();
     const { setUserToken } = useContext(UserContext);
+    const [deletingScanId, setDeletingScanId] = useState(null);
 
     const resetProfileState = useCallback(() => {
         setProfileData(null);
@@ -81,8 +85,6 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                 onProfileUpdate?.(newProfileData);
             }
         } catch (error) {
-            console.error('Error fetching profile:', error);
-            console.error(error?.response?.data?.errMsg);
             resetProfileState();
         } finally {
             setLoading(false);
@@ -101,7 +103,6 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
         };
     }, [photoPreview]);
 
-    // Close name input on outside click
     useEffect(() => {
         if (!isEditingName) return;
         function handleClickOutside(event) {
@@ -209,7 +210,6 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                 setPhotoPreview('');
             }
         } catch (error) {
-            console.error('Error uploading photo:', error);
             setPhotoPreview('');
         } finally {
             setPhotoSaving(false);
@@ -242,7 +242,6 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
         setShowScanHistory(false);
     };
 
-    // Delete Account Handler
     const handleDeleteAccount = async () => {
         setDeleteLoading(true);
         try {
@@ -284,6 +283,67 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
         } finally {
             setPhotoSaving(false);
         }
+    };
+
+    const handleDeleteScan = async (scanId) => {
+        setDeletingScanId(scanId);
+        try {
+            const response = await axios.delete(
+                'http://localhost:3000/vulns/deleteSpecificScanHistory',
+                {
+                    headers: { ...headers, Authorization: `Bearer ${userToken}` },
+                    data: { scanHistoryId: scanId }
+                }
+            );
+            if (response.data?.success) {
+                setScanHistory(prevHistory => prevHistory.filter(scan => scan._id !== scanId));
+            }
+        } catch (error) {
+            // Optionally set errorPopup here
+        } finally {
+            setDeletingScanId(null);
+        }
+    };
+
+    const showDeleteConfirmation = (scanId) => {
+        confirmAlert({
+            customUI: ({ onClose }) => {
+                return (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className={styles.deleteConfirmationModal}
+                    >
+                        <div className={styles.deleteConfirmationContent}>
+                            <h2>Delete Scan</h2>
+                            <p>Are you sure you want to delete this scan? This action cannot be undone.</p>
+                            <div className={styles.deleteConfirmationButtons}>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className={styles.cancelButton}
+                                    onClick={onClose}
+                                >
+                                    Cancel
+                                </motion.button>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className={styles.deleteButton}
+                                    onClick={() => {
+                                        handleDeleteScan(scanId);
+                                        onClose();
+                                    }}
+                                >
+                                    Delete
+                                </motion.button>
+                            </div>
+                        </div>
+                    </motion.div>
+                );
+            }
+        });
     };
 
     return (
@@ -414,6 +474,21 @@ function UserProfileContent({ userToken, headers, onProfileUpdate }) {
                                             key={scan._id || idx}
                                             onClick={() => setExpandedCard(expandedCard === idx ? null : idx)}
                                         >
+                                            <motion.button
+                                                whileTap={{ scale: 0.9 }}
+                                                className={styles.deleteScanButton}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    showDeleteConfirmation(scan._id);
+                                                }}
+                                                disabled={deletingScanId === scan._id}
+                                            >
+                                                {deletingScanId === scan._id ? (
+                                                    <FaSpinner className={styles.spinner} />
+                                                ) : (
+                                                    <FaTrash />
+                                                )}
+                                            </motion.button>
                                             <div className={styles.scanCardHeader}>Scan #{scanHistory.length - idx}</div>
                                             <div className={styles.scanCardDate}>{new Date(scan.createdAt).toLocaleString()}</div>
                                             {expandedCard === idx && (

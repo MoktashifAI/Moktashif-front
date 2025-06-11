@@ -1070,8 +1070,9 @@ export default function Chatbot() {
                             onKeyDown={handleInputKeyDown}
                             disabled={isLoading}
                             placeholder="Ask a cybersecurity question..."
-                        className={style.inputText}
+                        className={`${style.inputText}`}
                             rows={2}
+                            cols={70}
                             spellCheck={true}
                         />
                         <button

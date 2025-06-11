@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import style from './Sidebar.module.css';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiGlobe } from 'react-icons/fi';
+import { FiGlobe, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { LuPanelLeft, LuPanelRight } from 'react-icons/lu';
 
 const Sidebar = ({
     conversations,
@@ -22,6 +23,7 @@ const Sidebar = ({
     const [errorModal, setErrorModal] = useState({ open: false, message: '' });
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteConvId, setDeleteConvId] = useState(null);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     useEffect(() => {
         if (!search.trim()) {
@@ -80,7 +82,7 @@ const Sidebar = ({
     // Utility to highlight search terms in text
     function highlightText(text, keyword) {
         if (!keyword) return text;
-        const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')})`, 'gi');
         return text.split(regex).map((part, i) =>
             regex.test(part) ? <mark key={i} className="bg-yellow-200 text-gray-900 px-0.5 rounded">{part}</mark> : part
         );
@@ -108,169 +110,176 @@ const Sidebar = ({
         );
     };
 
+    // Sidebar width for animation
+    const sidebarWidth = 300;
+    const collapsedWidth = 48;
+
     return (
         <>
             <ErrorModal open={errorModal.open} message={errorModal.message} onClose={() => setErrorModal({ open: false, message: '' })} />
-            <motion.div
-                className={style.sidebarContainer}
-                initial={{ x: isOpen ? 0 : -350, opacity: 0 }}
-                animate={{ x: isOpen ? 0 : -350, opacity: 1 }}
-                transition={{ duration: 0.5, type: 'spring' }}
+            {/* Toggle Button - always rendered, outside sidebarContainer */}
+            <button
+                className={style.sidebarToggleBtn + (sidebarCollapsed ? ' ' + style.collapsed : '')}
+                onClick={() => setSidebarCollapsed(v => !v)}
+                aria-label={sidebarCollapsed ? 'Open sidebar' : 'Collapse sidebar'}
             >
-                <div className={style.sidebarHeader} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span>Moktashif</span>
-                    <button
-                        onClick={onToggle}
-                        className="ml-2 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none"
-                        aria-label="Toggle sidebar"
-                        style={{ fontSize: '1.5rem', background: 'none', border: 'none', color: 'inherit' }}
-                    >
-                        <span style={{ display: 'inline-block', fontWeight: 'bold' }}>&#9776;</span>
-                    </button>
-                </div>
-                <input
-                    type="text"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    placeholder="Search conversations..."
-                    className={style.searchBar}
-                />
-                <motion.button
-                    onClick={onNewChat}
-                    className={style.newChatBtn}
-                    whileHover={{ scale: 1.07 }}
-                    whileTap={{ scale: 0.97 }}
-                >
-                    + New Chat
-                </motion.button>
-                {/* Conversations list or search results */}
-                <div style={{ flex: 1, overflowY: 'auto' }}>
-                    <div>
-                        {search.trim() ? (
-                            searching ? (
-                                <div className="text-center text-gray-400 py-4 animate-pulse">Searching...</div>
-                            ) : searchResults.length > 0 ? (
-                                searchResults.map((conv, idx) => (
-                                    <motion.div
-                                        key={conv.id}
-                                        className={
-                                            `${style.conversationItem} ${conv.id === currentConversationId ? style.activeConversation : ''}`
-                                        }
-                                        initial={{ opacity: 0, y: 30 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: idx * 0.04, duration: 0.4, type: 'spring' }}
-                                    >
-                                        <div
-                                            className="w-full cursor-pointer"
-                                            onClick={() => onSelectConversation(conv.id)}
-                                        >
-                                            <div className="flex flex-col">
-                                                <span className="truncate font-medium">
-                                                    {conv.match_type === 'title' ? (
-                                                        highlightText(conv.title, search)
-                                                    ) : (
-                                                        conv.title
-                                                    )}
-                                                </span>
-                                                {conv.match_type === 'message' && conv.snippet && (
-                                                    <span className="text-xs text-primary-300 mt-1">
-                                                        ...{highlightText(conv.snippet, search)}...
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="text-xs text-gray-400 mt-1">
-                                                {formatDate(conv.created_at || conv.updated_at)}
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                ))
-                            ) : (
-                                <div className="text-center text-gray-400 py-4">No results found</div>
-                            )
-                        ) : conversations.length > 0 ? (
-                            conversations.map((conv, idx) => (
-                                <motion.div
-                                    key={conv.id}
-                                    className={
-                                        `${style.conversationItem} ${conv.id === currentConversationId ? style.activeConversation : ''}`
-                                    }
-                                    initial={{ opacity: 0, y: 30 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.04, duration: 0.4, type: 'spring' }}
-                                >
-                                    {editingId === conv.id ? (
-                                        <div className="p-2 w-full">
-                                            <input
-                                                type="text"
-                                                value={editTitle}
-                                                onChange={(e) => setEditTitle(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') handleSave(conv.id);
-                                                    if (e.key === 'Escape') setEditingId(null);
-                                                }}
-                                                autoFocus
-                                                className="w-full bg-gray-600 text-white px-2 py-1 rounded outline-none"
-                                            />
-                                            <div className="flex gap-2 mt-1">
-                                                <button
-                                                    onClick={() => handleSave(conv.id)}
-                                                    className="text-xs px-3 py-1 rounded bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition"
+                {sidebarCollapsed ? <LuPanelRight /> : <LuPanelLeft />}
+            </button>
+            <motion.div
+                className={style.sidebarContainer + (sidebarCollapsed ? ' ' + style.sidebarCollapsed : '')}
+                initial={{ x: 0 }}
+                animate={{ x: sidebarCollapsed ? -(sidebarWidth - collapsedWidth) : 0 }}
+                transition={{ duration: 0.45, type: 'tween' }}
+                style={{ width: sidebarCollapsed ? collapsedWidth : sidebarWidth, minWidth: sidebarCollapsed ? collapsedWidth : 200 }}
+            >
+                {!sidebarCollapsed && (
+                    <>
+                        <div style={{ height: '2.5rem' }}></div>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="Search conversations..."
+                            className={style.searchBar}
+                        />
+                        <motion.button
+                            onClick={onNewChat}
+                            className={style.newChatBtn}
+                            whileHover={{ scale: 1.07 }}
+                            whileTap={{ scale: 0.97 }}
+                        >
+                            + New Chat
+                        </motion.button>
+                        {/* Conversations list or search results */}
+                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                            <div>
+                                {search.trim() ? (
+                                    searching ? (
+                                        <div className="text-center text-gray-400 py-4 animate-pulse">Searching...</div>
+                                    ) : searchResults.length > 0 ? (
+                                        searchResults.map((conv, idx) => (
+                                            <motion.div
+                                                key={conv.id}
+                                                className={
+                                                    `${style.conversationItem} ${conv.id === currentConversationId ? style.activeConversation : ''}`
+                                                }
+                                                initial={{ opacity: 0, y: 30 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ delay: idx * 0.04, duration: 0.4, type: 'spring' }}
+                                            >
+                                                <div
+                                                    className="w-full cursor-pointer"
+                                                    onClick={() => onSelectConversation(conv.id)}
                                                 >
-                                                    Save
-                                                </button>
-                                                <button
-                                                    onClick={() => setEditingId(null)}
-                                                    className="text-xs px-3 py-1 rounded bg-gray-200 text-gray-800 font-semibold shadow hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 transition"
-                                                >
-                                                    Cancel
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div
-                                            className="w-full cursor-pointer"
-                                            onClick={() => onSelectConversation(conv.id)}
-                                        >
-                                            <div className="flex justify-between items-start">
-                                                <div className="truncate font-medium">{conv.title}</div>
-                                                <div className="flex space-x-1 ml-1">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            handleEdit(conv);
-                                                        }}
-                                                        className="text-gray-400 hover:text-white"
-                                                    >
-                                                        ✎
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            setDeleteConvId(conv.id);
-                                                            setShowDeleteModal(true);
-                                                        }}
-                                                        className="text-gray-400 hover:text-white"
-                                                    >
-                                                        🗑️
-                                                    </button>
+                                                    <div className="flex flex-col">
+                                                        <span className="truncate font-medium">
+                                                            {conv.match_type === 'title' ? (
+                                                                highlightText(conv.title, search)
+                                                            ) : (
+                                                                conv.title
+                                                            )}
+                                                        </span>
+                                                        {conv.match_type === 'message' && conv.snippet && (
+                                                            <span className="text-xs text-primary-300 mt-1">
+                                                                ...{highlightText(conv.snippet, search)}...
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-gray-400 mt-1">
+                                                        {formatDate(conv.created_at || conv.updated_at)}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="text-xs text-gray-400 mt-1">
-                                                {formatDate(conv.created_at || conv.updated_at)}
-                                            </div>
-                                        </div>
-                                    )}
-                                </motion.div>
-                            ))
-                        ) : (
-                            <div className="text-center py-4 text-gray-400">
-                                No conversations yet
+                                            </motion.div>
+                                        ))
+                                    ) : (
+                                        <div className="text-center text-gray-400 py-4">No results found</div>
+                                    )
+                                ) : conversations.length > 0 ? (
+                                    conversations.map((conv, idx) => (
+                                        <motion.div
+                                            key={conv.id}
+                                            className={
+                                                `${style.conversationItem} ${conv.id === currentConversationId ? style.activeConversation : ''}`
+                                            }
+                                            initial={{ opacity: 0, y: 30 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: idx * 0.04, duration: 0.4, type: 'spring' }}
+                                        >
+                                            {editingId === conv.id ? (
+                                                <div className="p-2 w-full">
+                                                    <input
+                                                        type="text"
+                                                        value={editTitle}
+                                                        onChange={(e) => setEditTitle(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') handleSave(conv.id);
+                                                            if (e.key === 'Escape') setEditingId(null);
+                                                        }}
+                                                        autoFocus
+                                                        className="w-full bg-gray-600 text-white px-2 py-1 rounded outline-none"
+                                                    />
+                                                    <div className="flex gap-2 mt-1">
+                                                        <button
+                                                            onClick={() => handleSave(conv.id)}
+                                                            className="text-xs px-3 py-1 rounded bg-blue-600 text-white font-semibold shadow hover:bg-blue-700 transition"
+                                                        >
+                                                            Save
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setEditingId(null)}
+                                                            className="text-xs px-3 py-1 rounded bg-gray-200 text-gray-800 font-semibold shadow hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 transition"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="w-full cursor-pointer"
+                                                    onClick={() => onSelectConversation(conv.id)}
+                                                >
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="truncate font-medium">{conv.title}</div>
+                                                        <div className="flex space-x-1 ml-1">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    handleEdit(conv);
+                                                                }}
+                                                                className="text-gray-400 hover:text-white"
+                                                            >
+                                                                ✎
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    e.stopPropagation();
+                                                                    setDeleteConvId(conv.id);
+                                                                    setShowDeleteModal(true);
+                                                                }}
+                                                                className="text-gray-400 hover:text-white"
+                                                            >
+                                                                🗑️
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-xs text-gray-400 mt-1">
+                                                        {formatDate(conv.created_at || conv.updated_at)}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </motion.div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-4 text-gray-400">
+                                        No conversations yet
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
-                </div>
+                        </div>
+                    </>
+                )}
             </motion.div>
             {/* Animated Delete Modal */}
             <AnimatePresence>
