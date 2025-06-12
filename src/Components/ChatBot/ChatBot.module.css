@@ -50,16 +50,22 @@
   margin: 1.5rem 0 1.5rem 0;
   transition: var(--theme_transition);
   animation: fadeInUp 0.7s cubic-bezier(.23,1.01,.32,1) 0.1s both;
-  max-width: 800px;
+  max-width: 60rem;
   margin-left: auto;
   margin-right: auto;
 }
 
+@media (max-width: 1200px) {
+  .inputBar, .chatArea {
+    max-width: 95vw !important;
+  }
+}
+
 @media (max-width: 900px) {
-  .chatArea {
-    padding: 1.2rem 0.5rem 0.5rem 0.5rem;
-    margin: 0.5rem 0 0.5rem 0;
-    border-radius: 0.7rem;
+  .inputBar, .chatArea {
+    max-width: 99vw !important;
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
   }
 }
 
@@ -116,7 +122,8 @@
   box-shadow: 0 2px 8px 0 rgba(41, 45, 50, 0.10);
   padding: 0.5rem 1rem;
   margin: 0 auto 1.5rem auto;
-  max-width: 800px;
+  max-width: 60rem !important;
+  width: 100%;
   position: relative;
   z-index: 2;
   transition: var(--theme_transition), box-shadow 0.2s;
@@ -140,12 +147,14 @@
   border: none;
   background: transparent;
   font-size: 1.1rem;
-  padding: 0.7rem 1rem;
+  padding: 0.9rem 1rem;
   outline: none;
   color: var(--text_color);
   transition: var(--theme_transition);
-  width: 100% !important;
+  width: 100%;
   box-sizing: border-box;
+  min-height: 48px;
+  display: block;
 }
 
 .sendButton {

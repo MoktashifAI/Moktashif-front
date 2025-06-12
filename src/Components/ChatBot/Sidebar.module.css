@@ -68,23 +68,23 @@
   font-size: 1.05rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, var(--theme_transition), box-shadow 0.2s;
+  transition: background 0.2s, box-shadow 0.2s, var(--theme_transition);
   animation: itemPopIn 0.5s cubic-bezier(.23,1.01,.32,1);
 }
 .conversationItem:hover {
-  background: #e0e7ef;
-  color: var(--form_color);
-  box-shadow: 0 2px 8px 0 var(--fourth_color);
+  background: #b1c6ff !important;
+  color: inherit !important;
+  box-shadow: none !important;
 }
 .conversationItem:hover .conversationDate,
 .conversationItem:hover span,
 .conversationItem:hover div {
-  color: var(--form_color) !important;
+  color: inherit !important;
 }
 .activeConversation {
   background: var(--form_color);
   color: #fff;
-  box-shadow: 0 4px 16px 0 var(--form_color);
+  box-shadow: none !important;
 }
 
 .newChatBtn {
@@ -265,4 +265,16 @@
 [data-theme="dark"] .sidebarToggleBtn:hover, [data-theme="dark"] .sidebarToggleBtn:focus {
   background: linear-gradient(135deg, var(--form_color), var(--footer_upper_border));
   color: #fff;
+}
+
+.conversationDate {
+  color: #fff !important;
+  filter: none !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  transition: none !important;
+}
+
+.activeConversation .conversationDate {
+  color: #fff !important;
 }

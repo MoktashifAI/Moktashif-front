@@ -6,7 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Sidebar from './Sidebar';
-import { FaPaperclip, FaHistory, FaSpinner, FaFileAlt, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import { FaPaperclip, FaHistory, FaSpinner, FaFileAlt, FaCheckCircle, FaTimesCircle, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
 import { FiArrowUp, FiGlobe, FiFile } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import CyberBackgroundChatBot from './CyberBackgroundChatBot';
@@ -80,6 +80,15 @@ export default function Chatbot() {
     const [uploadError, setUploadError] = useState(null);
     const [isCooldown, setIsCooldown] = useState(false);
     const cooldownTimeoutRef = useRef(null);
+    const [conversationFiles, setConversationFiles] = useState([]);
+    const [fileListMode, setFileListMode] = useState('all'); // 'all' or 'conversation'
+
+    // Clean up ?message=... from the URL on load
+    useEffect(() => {
+        if (location.pathname === '/chatbot' && location.search.startsWith('?message=')) {
+            navigate('/chatbot', { replace: true });
+        }
+    }, [location, navigate]);
 
     // Define functions that need to be used by other functions
     const handleNewChat = async (title = 'New Conversation') => {
@@ -105,6 +114,8 @@ export default function Chatbot() {
             await api.delete(`/conversations/${id}`);
             setConversations(prev => sortConversations(prev.filter(conv => conv.id !== id)));
             if (id === conversationId) {
+                setMessages([]); // Clear messages immediately
+                setCurrentConversation(null);
                 if (conversations.length > 1) {
                     // Find the next conversation to select
                     const nextConv = conversations.find(conv => conv.id !== id);
@@ -388,7 +399,6 @@ export default function Chatbot() {
             // After streaming, update messages from backend only (do not append assistant response manually)
             setStreamingResponse('');
             await fetchConversation(convId);
-            setWebSearchEnabled(false);
             setUploadedFile(null);
             setUploadedFileDisplay(null);
             setFileLocked(false);
@@ -598,53 +608,60 @@ export default function Chatbot() {
     };
 
     // Improved message editing with validation
-    const handleEditSubmit = async (index) => {
+    const handleEditSubmit = async (index, prevMessages = null) => {
         if (!editingMsgValue.trim()) {
             setEditError('Message cannot be empty');
             return;
         }
-
-        // Validate message length
         if (editingMsgValue.length > 4000) {
             setEditError('Message is too long (max 4000 characters)');
             return;
         }
-
-        // Check if message is unchanged
         const originalMessage = messages[index];
         if (originalMessage.content === editingMsgValue.trim()) {
             setEditingMsgIdx(null);
             setEditingMsgValue('');
             return;
         }
-
         setEditLoading(true);
         setEditError('');
-
         try {
             const response = await api.put(
                 `/conversations/${conversationId}/messages/${index}/edit`,
-                { 
+                {
                     content: editingMsgValue.trim(),
                     original_content: originalMessage.content
                 },
             );
-
             if (response.data && response.data.conversation) {
                 setCurrentConversation(response.data.conversation);
                 setMessages(response.data.conversation.messages || []);
                 setEditingMsgIdx(null);
                 setEditingMsgValue('');
                 setPairVersionIdx({});
-                
-                // Show success message
                 setUploadStatus('Message edited successfully');
                 setTimeout(() => setUploadStatus(''), 3000);
+
+                // --- Regenerate assistant response for the edited message ---
+                // Show spinner in place of assistant message while regenerating
+                setIsLoading(true);
+                setStreamingResponse('');
+                try {
+                    // Only call the edit endpoint to update the user message
+                    // No call to /regenerate
+                    await fetchConversation(conversationId);
+                    setError('');
+                } catch (fetchErr) {
+                    setError('Failed to update conversation after editing message.');
+                } finally {
+                    setIsLoading(false);
+                }
+                // --- End regeneration logic ---
             }
         } catch (err) {
             if (handleAuthError(err, navigate)) return;
-            
-            // Handle specific error cases
+            // Rollback optimistic update if error
+            if (prevMessages) setMessages(prevMessages);
             if (err.response?.status === 409) {
                 setEditError('Message was modified by another user. Please refresh and try again.');
             } else if (err.response?.status === 403) {
@@ -839,12 +856,32 @@ export default function Chatbot() {
         }
     };
 
-    // Add effect to load previously uploaded files when showing selector
+    // Fetch files for the current conversation
+    const fetchConversationFiles = useCallback(async () => {
+        if (!conversationId) return;
+        try {
+            setLoadingPreviousFiles(true);
+            const response = await api.get(`/upload/filename/${conversationId}`);
+            if (response.data && response.data.files) {
+                setConversationFiles(response.data.files);
+            }
+        } catch (error) {
+            setConversationFiles([]);
+        } finally {
+            setLoadingPreviousFiles(false);
+        }
+    }, [conversationId]);
+
+    // Update effect to fetch files when file selector is opened or conversation changes
     useEffect(() => {
         if (showFileSelector) {
-            fetchPreviousFiles();
+            if (fileListMode === 'all') {
+                fetchPreviousFiles();
+            } else {
+                fetchConversationFiles();
+            }
         }
-    }, [showFileSelector, fetchPreviousFiles]);
+    }, [showFileSelector, fileListMode, fetchPreviousFiles, fetchConversationFiles]);
 
     // Handle incoming message from navbar
     useEffect(() => {
@@ -878,6 +915,13 @@ export default function Chatbot() {
                             return;
                         }
                     }
+
+                    // Add the user message immediately to the chat
+                    const userMessage = {
+                        role: 'user',
+                        content: incomingMessage
+                    };
+                    setMessages(prevMessages => [...prevMessages, userMessage]);
 
                     // Send the message in the selected conversation
                     const payload = {
@@ -985,12 +1029,100 @@ export default function Chatbot() {
                     <div className="space-y-6">
                         {messages.map((msg, index) => {
                             if (msg.role === 'user') {
+                                const isEditing = editingMsgIdx === index;
                                 return (
-                                    <div key={index} style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                                        <div className={style.userBubble}>
-                                            <ReactMarkdown components={components}>
-                                                {getPairDisplayedContent(msg, index)}
-                                            </ReactMarkdown>
+                                    <div key={index} style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', alignItems: 'flex-end' }}>
+                                        <div className={style.userBubble} style={{ position: 'relative', minWidth: 80 }}>
+                                            {/* File icon at top left if message has file */}
+                                            {msg.hasFile || msg.file_id ? (
+                                                <div style={{ position: 'absolute', top: -16, left: -16, display: 'flex', alignItems: 'center', zIndex: 3 }}>
+                                                    <FaFileAlt style={{ color: '#9ca3af', background: 'var(--navbar_background)', borderRadius: '50%', fontSize: 18 }} title="This message is about an uploaded file" />
+                                                    {msg.fileName || msg.file_name || msg.filename ? (
+                                                        <span style={{ marginLeft: 6, color: '#9ca3af', fontSize: 13, fontWeight: 500, background: 'var(--navbar_background)', padding: '0 6px', borderRadius: 6, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {msg.fileName || msg.file_name || msg.filename}
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                            ) : null}
+                                            {/* Pencil icon, absolutely positioned to overlap left edge, vertically centered */}
+                                            {!isEditing && (
+                                                <button
+                                                    className="p-0 text-gray-400 focus:outline-none transition"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: '-18px',
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        minWidth: 22,
+                                                        minHeight: 22,
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        boxShadow: 'none',
+                                                        color: '#9ca3af',
+                                                        zIndex: 2
+                                                    }}
+                                                    onClick={() => {
+                                                        setEditingMsgIdx(index);
+                                                        setEditingMsgValue(msg.content);
+                                                        setEditError('');
+                                                    }}
+                                                    title="Edit message"
+                                                    aria-label="Edit message"
+                                                >
+                                                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.8 2.8a1.13 1.13 0 0 1 1.6 1.6l-8.2 8.2-2.2.6.6-2.2 8.2-8.2z"></path></svg>
+                                                </button>
+                                            )}
+                                            {/* Editing input */}
+                                            {isEditing ? (
+                                                <form
+                                                    onSubmit={async e => {
+                                                        e.preventDefault();
+                                                        const prevMessages = [...messages];
+                                                        setMessages(msgs => {
+                                                            const newMsgs = [...msgs];
+                                                            newMsgs[index] = { ...newMsgs[index], content: editingMsgValue };
+                                                            return newMsgs;
+                                                        });
+                                                        await handleEditSubmit(index, prevMessages);
+                                                    }}
+                                                    style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 80 }}
+                                                >
+                                                    <input
+                                                        className="rounded-md border border-gray-200 dark:border-gray-700 bg-[var(--body_background)] dark:bg-[var(--navbar_background)] text-[var(--text_color)] px-2 py-0.5 text-xs shadow-sm focus:ring-1 focus:ring-blue-400 focus:border-blue-400 outline-none transition mb-1 font-medium"
+                                                        value={editingMsgValue}
+                                                        onChange={handleEditInputChange}
+                                                        autoFocus
+                                                        disabled={editLoading}
+                                                        maxLength={4000}
+                                                        style={{ minHeight: 22, fontSize: '0.89rem', fontWeight: 500, boxShadow: '0 1px 4px 0 rgba(41,45,50,0.05)' }}
+                                                        placeholder="Edit..."
+                                                    />
+                                                    {editError && <div className="text-xs text-red-500 mb-1">{editError}</div>}
+                                                    <div style={{ display: 'flex', gap: '0.2rem', marginTop: 1 }}>
+                                                        <button
+                                                            type="submit"
+                                                            className="px-1.5 py-0.5 rounded bg-blue-500 text-white font-semibold transition text-xs flex items-center gap-1 shadow-sm"
+                                                            disabled={editLoading || !editingMsgValue.trim() || editingMsgValue.length > 4000}
+                                                            style={{ minWidth: 0, fontSize: '0.85rem', height: 22 }}
+                                                        >
+                                                            {editLoading ? <FaSpinner className="animate-spin" size={11} /> : <FaCheck size={11} />}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-100 font-semibold transition text-xs flex items-center gap-1 shadow-sm"
+                                                            onClick={() => { setEditingMsgIdx(null); setEditingMsgValue(''); setEditError(''); }}
+                                                            disabled={editLoading}
+                                                            style={{ minWidth: 0, fontSize: '0.85rem', height: 22 }}
+                                                        >
+                                                            <FaTimes size={11} />
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            ) : (
+                                                <ReactMarkdown components={components}>
+                                                    {getPairDisplayedContent(msg, index)}
+                                                </ReactMarkdown>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -1056,23 +1188,22 @@ export default function Chatbot() {
                         />
                         <button
                             type="button"
-                        className={`p-2 rounded-full hover:bg-gray-200 text-gray-500 bg-transparent border-none${webSearchEnabled ? ' text-blue-600' : ''}`}
+                            className={`p-2 rounded-full border-none transition focus:outline-none ${webSearchEnabled ? 'text-blue-600 dark:text-blue-300' : 'text-gray-500'}`}
                             onClick={() => setWebSearchEnabled(!webSearchEnabled)}
-                        tabIndex={0}
+                            tabIndex={0}
                             aria-label={webSearchEnabled ? "Web search enabled" : "Enable web search"}
-                        title={webSearchEnabled ? "Web search enabled - click send to search" : "Click to enable web search"}
+                            title={webSearchEnabled ? "Web search enabled - click send to search" : "Click to enable web search"}
                         >
                             <FiGlobe size={20} />
                         </button>
-                        <textarea
+                        <input
+                            type="text"
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
                             onKeyDown={handleInputKeyDown}
                             disabled={isLoading}
                             placeholder="Ask a cybersecurity question..."
-                        className={`${style.inputText}`}
-                            rows={2}
-                            cols={70}
+                            className={`${style.inputText}`}
                             spellCheck={true}
                         />
                         <button
@@ -1169,9 +1300,11 @@ export default function Chatbot() {
             <FileSelector 
                 open={showFileSelector}
                 onClose={() => setShowFileSelector(false)}
-                files={previousFiles}
+                files={fileListMode === 'all' ? previousFiles : conversationFiles}
                 loading={loadingPreviousFiles}
                 onSelect={selectPreviousFile}
+                mode={fileListMode}
+                onModeChange={setFileListMode}
             />
         </div>
     );

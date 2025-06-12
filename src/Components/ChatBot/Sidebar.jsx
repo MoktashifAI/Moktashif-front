@@ -34,7 +34,7 @@ const Sidebar = ({
         setSearching(true);
         const timeout = setTimeout(async () => {
             try {
-                const token = localStorage.getItem('token');
+                const token = localStorage.getItem('userToken');
                 const res = await axios.get(`/conversations/search?q=${encodeURIComponent(search)}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });

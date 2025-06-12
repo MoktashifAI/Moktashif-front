@@ -14,6 +14,7 @@ export default defineConfig({
       '/upload': 'http://localhost:5000',
       '/file': 'http://localhost:5000',
       '/user': 'http://localhost:5000',
-    }
+    },
+    historyApiFallback: true
   },
 })
