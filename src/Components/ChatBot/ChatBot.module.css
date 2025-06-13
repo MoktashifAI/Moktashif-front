@@ -27,7 +27,7 @@
 .chatContainer {
   display: flex;
   flex-direction: row;
-  height: 100vh;
+  min-height: 100vh;
   background: var(--body_background);
   transition: var(--theme_transition);
   justify-content: center;
@@ -35,10 +35,9 @@
 
 .chatArea {
   flex: 1 1 0%;
-  overflow-y: auto;
+  overflow-y: visible;
   overflow-x: hidden;
   padding: 1.2rem 0.5rem 1.2rem 0.5rem;
-  max-height: calc(100vh - 180px);
   min-height: 0;
   display: flex;
   flex-direction: column;

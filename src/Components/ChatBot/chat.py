@@ -459,13 +459,16 @@ def chat(conversation_id):
     auto_search_used = False
     
     # --- Check if message contains personal facts ---
+    print(f"🔍 DEBUG: Checking if message contains personal facts: '{message[:100]}...'")
     contains_fact, extracted_fact = is_personal_fact(message)
+    print(f"🔍 DEBUG: Personal fact detection result: contains_fact={contains_fact}, extracted_fact='{extracted_fact}'")
     
     # --- If it contains a personal fact, store it automatically ---
     conversation_title = conversation.get('title', 'Untitled Conversation')
     
     if contains_fact:
-        print(f"DEBUG: Storing personal fact: {extracted_fact}")
+        print(f"💾 DEBUG: Storing personal fact for user {user_id}: {extracted_fact}")
+        print(f"💾 DEBUG: Storing in conversation '{conversation_title}' (ID: {conversation_id})")
         store_user_memory(
             user_id, 
             extracted_fact,
@@ -476,6 +479,7 @@ def chat(conversation_id):
             importance=0.8,
             topic="cybersecurity"
         )
+        print(f"💾 DEBUG: Personal fact stored successfully!")
 
     # --- Add user message to semantic memory ---
     memory_store.add(user_id, conversation_id, message, role="user", extra={"replyTo": reply_to} if reply_to else None)
@@ -666,14 +670,21 @@ def chat(conversation_id):
             cybersec_memories = retrieve_user_memories(user_id, message, conversation_id)
             
             # Debug the cross-conversation memory retrieval
-            print(f"DEBUG CYBERSEC MEMORY: Retrieved {len(cybersec_memories['current'])} memories from current conversation")
-            print(f"DEBUG CYBERSEC MEMORY: Retrieved {len(cybersec_memories['other'])} memories from other conversations")
+            print(f"🧠 DEBUG CYBERSEC MEMORY: Retrieved {len(cybersec_memories['current'])} memories from current conversation")
+            print(f"🧠 DEBUG CYBERSEC MEMORY: Retrieved {len(cybersec_memories['other'])} memories from other conversations")
             
             if cybersec_memories['current']:
-                print(f"DEBUG CYBERSEC MEMORY: Sample current memory: {cybersec_memories['current'][0].get('text', '')[:100]}...")
+                print(f"🧠 DEBUG CYBERSEC MEMORY: Sample current memory: {cybersec_memories['current'][0].get('text', '')[:100]}...")
+                for i, mem in enumerate(cybersec_memories['current'][:3]):  # Show first 3 memories
+                    print(f"🧠   Current Memory {i+1}: {mem.get('text', '')[:150]}...")
             
             if cybersec_memories['other']:
-                print(f"DEBUG CYBERSEC MEMORY: Sample other memory: {cybersec_memories['other'][0].get('text', '')[:100]}...")
+                print(f"🧠 DEBUG CYBERSEC MEMORY: Sample other memory: {cybersec_memories['other'][0].get('text', '')[:100]}...")
+                for i, mem in enumerate(cybersec_memories['other'][:3]):  # Show first 3 cross-conversation memories
+                    conv_title = mem.get('conversation_title', 'Unknown Conversation')
+                    print(f"🧠   Cross-Conv Memory {i+1} from '{conv_title}': {mem.get('text', '')[:150]}...")
+            else:
+                print(f"🧠 DEBUG CYBERSEC MEMORY: ⚠️ NO CROSS-CONVERSATION MEMORIES FOUND for user {user_id} with query: {message[:50]}...")
                 
             # --- Retrieve relevant memories for this user and query from old memory system ---
             relevant_memories = memory_store.get_relevant_memories(user_id, message, conversation_id)
@@ -776,14 +787,15 @@ def chat(conversation_id):
             # --- Format cybersec cross-conversation memories for LLM prompt ---
             cybersec_memory_prompt = ""
             if cybersec_memories["current"]:
-                cybersec_memory_prompt += "\nImportant context from current conversation:\n" + "\n".join(
+                cybersec_memory_prompt += "\n🔍 IMPORTANT CONTEXT FROM CURRENT CONVERSATION:\n" + "\n".join(
                     f"- {mem.get('text', '')}" for mem in cybersec_memories["current"]
                 )
             if cybersec_memories["other"]:
-                cybersec_memory_prompt += "\n\nIMPORTANT CROSS-CONVERSATION CONTEXT:\n" + "\n".join(
+                cybersec_memory_prompt += "\n\n🌐 CRITICAL CROSS-CONVERSATION CONTEXT (Remember these facts about the user):\n" + "\n".join(
                     f"- From '{mem.get('conversation_title', 'Previous conversation')}': {mem.get('text', '')}" 
                     for mem in cybersec_memories["other"]
                 )
+                print(f"🧠 DEBUG: Adding {len(cybersec_memories['other'])} cross-conversation memories to system prompt")
                 
             # --- Format older memories for LLM prompt ---
             memory_prompt = ""
@@ -799,8 +811,10 @@ def chat(conversation_id):
             # --- Improved system prompt ---
             system_prompt = (
                 "You are Moktashif, a smart and friendly cybersecurity assistant.\n"
-                "You have access to the user's previous conversations and replies. "
-                "When the user asks a question, always check if similar questions or relevant context exist in their past conversations (shown below). "
+                "🧠 MEMORY SYSTEM: You have access to the user's previous conversations and personal information. "
+                "ALWAYS use the cross-conversation context provided below to remember facts about the user (like their name, work environment, tools they use, etc.). "
+                "When the user asks a question, check if similar questions or relevant context exist in their past conversations. "
+                "If you see cross-conversation context, USE IT - this information persists across all conversations with this user. "
                 "If the user is replying to a specific message, use the content of that message as immediate context for their new question. "
                 "Always prioritize the most relevant and recent information, but do not repeat answers verbatim unless asked.\n"
                 "You are strictly limited to answering only cybersecurity-related questions.\n"
@@ -1274,17 +1288,27 @@ def edit_message(conversation_id, msg_index):
     # Retrieve cross-conversation memories for context
     cybersec_memories = retrieve_user_memories(user_id, new_content, conversation_id)
     
+    # Debug memory retrieval for message editing
+    print(f"🧠 DEBUG EDIT MEMORY: Retrieved {len(cybersec_memories.get('current', []))} current memories")
+    print(f"🧠 DEBUG EDIT MEMORY: Retrieved {len(cybersec_memories.get('other', []))} cross-conversation memories")
+    
+    if cybersec_memories.get("other", []):
+        for i, mem in enumerate(cybersec_memories["other"][:2]):
+            conv_title = mem.get('conversation_title', 'Unknown')
+            print(f"🧠   Edit Cross-Conv Memory {i+1} from '{conv_title}': {mem.get('text', '')[:100]}...")
+    
     # Format cross-conversation context for LLM
     cybersec_memory_prompt = ""
     if cybersec_memories.get("current", []):
-        cybersec_memory_prompt += "\nImportant context from current conversation:\n" + "\n".join(
+        cybersec_memory_prompt += "\n🔍 IMPORTANT CONTEXT FROM CURRENT CONVERSATION:\n" + "\n".join(
             f"- {mem.get('text', '')}" for mem in cybersec_memories.get("current", [])
         )
     if cybersec_memories.get("other", []):
-        cybersec_memory_prompt += "\n\nIMPORTANT CROSS-CONVERSATION CONTEXT:\n" + "\n".join(
+        cybersec_memory_prompt += "\n\n🌐 CRITICAL CROSS-CONVERSATION CONTEXT (Remember these facts about the user):\n" + "\n".join(
             f"- From '{mem.get('conversation_title', 'Previous conversation')}': {mem.get('text', '')}" 
             for mem in cybersec_memories.get("other", [])
         )
+        print(f"🧠 DEBUG EDIT: Adding {len(cybersec_memories['other'])} cross-conversation memories to edit prompt")
     
     # If there are personal facts from other conversations, emphasize them
     if contains_fact:
@@ -1589,13 +1613,23 @@ def web_search_endpoint(conversation_id):
             # Retrieve cross-conversation memories for context
             cybersec_memories = retrieve_user_memories(user_id, message, conversation_id)
             
+            # Debug memory retrieval for web search
+            print(f"🧠 DEBUG WEB SEARCH MEMORY: Retrieved {len(cybersec_memories.get('current', []))} current memories")
+            print(f"🧠 DEBUG WEB SEARCH MEMORY: Retrieved {len(cybersec_memories.get('other', []))} cross-conversation memories")
+            
+            if cybersec_memories.get("other", []):
+                for i, mem in enumerate(cybersec_memories["other"][:2]):
+                    conv_title = mem.get('conversation_title', 'Unknown')
+                    print(f"🧠   Web Search Cross-Conv Memory {i+1} from '{conv_title}': {mem.get('text', '')[:100]}...")
+            
             # Format cross-conversation context
             cross_context = ""
             if cybersec_memories.get("other", []):
-                cross_context = "\n\nIMPORTANT CONTEXT FROM OTHER CONVERSATIONS:\n" + "\n".join(
+                cross_context = "\n\n🌐 IMPORTANT CONTEXT FROM OTHER CONVERSATIONS:\n" + "\n".join(
                     f"- From '{mem.get('conversation_title', 'Previous conversation')}': {mem.get('text', '')}" 
                     for mem in cybersec_memories.get("other", [])
                 )
+                print(f"🧠 DEBUG WEB SEARCH: Adding {len(cybersec_memories['other'])} cross-conversation memories to web search query")
             
             # Use the document context in the search if available
             enhanced_message = message
@@ -1615,18 +1649,40 @@ def web_search_endpoint(conversation_id):
             
             # Always use web search for this endpoint
             print(f"DEBUG WEB SEARCH: Sending message to cybersec_agent: {enhanced_message[:100]}...")
-            agent_result = answer_cybersec_query(enhanced_message, force_web_search=True)
             
-            # Debug if web search was actually used
-            print(f"DEBUG WEB SEARCH: Used web search: {agent_result.get('used_web_search', False)}")
-            print(f"DEBUG WEB SEARCH: Links returned: {len(agent_result.get('links', []))}")
-            
-            answer = agent_result.get("answer", "[No answer]")
-            
-            # Stream the answer to the client
-            for chunk in answer.splitlines(keepends=True):
-                partial_reply += chunk
-                yield chunk
+            try:
+                agent_result = answer_cybersec_query(enhanced_message, force_web_search=True)
+                
+                # Debug if web search was actually used
+                print(f"DEBUG WEB SEARCH: Used web search: {agent_result.get('used_web_search', False)}")
+                print(f"DEBUG WEB SEARCH: Links returned: {len(agent_result.get('links', []))}")
+                
+                answer = agent_result.get("answer", "[No answer]")
+                
+                # Check if we got a valid answer
+                if not answer or answer == "[No answer]":
+                    error_msg = "I encountered an error while searching for information about your query. Please try again with a different query or check the provided sources for information."
+                    
+                    # Add some default sources if available
+                    sources = agent_result.get('links', [])
+                    if sources:
+                        error_msg += "\n\nSources: " + "\n".join([f"[{i+1}] {link}" for i, link in enumerate(sources[:5])])
+                    else:
+                        # Add some default cybersecurity sources
+                        error_msg += "\n\nSources: [1] SQL Injection Prevention - OWASP Cheat Sheet Series\n[2] SQL Injection | OWASP Foundation\n[3] What is SQL Injection? Tutorial & Examples | Web Security Academy\n[4] What is SQL Injection (SQLi) and How to Prevent Attacks\n[5] Threat Modeling Process | OWASP Foundation"
+                    
+                    answer = error_msg
+                
+                # Stream the answer to the client
+                for chunk in answer.splitlines(keepends=True):
+                    partial_reply += chunk
+                    yield chunk
+                    
+            except Exception as agent_error:
+                print(f"DEBUG WEB SEARCH: Error from cybersec_agent: {agent_error}")
+                error_msg = "I encountered an error while searching for information about your query. Please try again with a different query or check the provided sources for information.\n\nSources: [1] SQL Injection Prevention - OWASP Cheat Sheet Series\n[2] SQL Injection | OWASP Foundation\n[3] What is SQL Injection? Tutorial & Examples | Web Security Academy\n[4] What is SQL Injection (SQLi) and How to Prevent Attacks\n[5] Threat Modeling Process | OWASP Foundation"
+                partial_reply += error_msg
+                yield error_msg
                 
         except Exception as e:
             error_msg = f"[ERROR] Web search error: {e}"

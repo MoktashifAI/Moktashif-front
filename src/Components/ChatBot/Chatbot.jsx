@@ -82,6 +82,7 @@ export default function Chatbot() {
     const cooldownTimeoutRef = useRef(null);
     const [conversationFiles, setConversationFiles] = useState([]);
     const [fileListMode, setFileListMode] = useState('all'); // 'all' or 'conversation'
+    const [regeneratingResponse, setRegeneratingResponse] = useState(null); // Track which message is being regenerated
 
     // Clean up ?message=... from the URL on load
     useEffect(() => {
@@ -91,21 +92,14 @@ export default function Chatbot() {
     }, [location, navigate]);
 
     // Define functions that need to be used by other functions
-    const handleNewChat = async (title = 'New Conversation') => {
-        // Defensive: If title is an event object, ignore it and use default
-        if (title && typeof title === 'object') {
-            title = 'New Conversation';
-        }
+    const handleNewChat = async () => {
         try {
-            // Only send title if it's not the default
-            const data = title && title !== 'New Conversation' ? { title } : {};
-            const response = await api.post('/conversations/new', data);
+            const response = await api.post('/conversations/new', {});
             const newConversation = response.data.conversation;
             setConversations(prev => sortConversations([newConversation, ...prev]));
             setConversationId(newConversation.id);
-        } catch (err) {
-            // Optionally handle error
-            console.error('Failed to create new conversation:', err);
+        } catch {
+            // Suppress error
         }
     };
 
@@ -224,18 +218,73 @@ export default function Chatbot() {
     }, [messages]);
 
     // --- Fetch single conversation ---
-    const fetchConversation = async (id = conversationId) => {
-        if (!id) return;
+    const fetchConversation = async () => {
+        if (!conversationId) return;
+        
         try {
-            const response = await api.get(`/conversations/${id}`);
+            const token = localStorage.getItem('userToken');
+            const response = await axios.get(`${API_BASE_URL}/conversations/${conversationId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
             if (response.data && response.data.conversation) {
                 const conv = response.data.conversation;
-                setMessages(conv.messages || []);
+                const serverMessages = conv.messages || [];
+                
+                // Only update messages if server has more messages than local state
+                // This prevents overwriting local state when we've already added the response
+                setMessages(prevMessages => {
+                    // If we have no local messages, use server messages
+                    if (prevMessages.length === 0) {
+                        console.log('📝 No local messages, using server messages');
+                        return serverMessages;
+                    }
+                    
+                    // If server has significantly more messages, update
+                    if (serverMessages.length > prevMessages.length + 1) {
+                        console.log(`📝 Server has significantly more messages (${serverMessages.length} vs ${prevMessages.length}), updating`);
+                        return serverMessages;
+                    }
+                    
+                    // If server has exactly one more message, check if it's different from our last message
+                    if (serverMessages.length === prevMessages.length + 1) {
+                        const lastServerMsg = serverMessages[serverMessages.length - 1];
+                        const lastLocalMsg = prevMessages[prevMessages.length - 1];
+                        
+                        // Only update if the new server message is different from what we expect
+                        if (lastServerMsg && lastLocalMsg && 
+                            lastServerMsg.role === 'assistant' && lastLocalMsg.role === 'user') {
+                            console.log('📝 Server has new assistant response, updating');
+                            return serverMessages;
+                        }
+                    }
+                    
+                    // If server has same number of messages, check for content differences
+                    if (serverMessages.length === prevMessages.length) {
+                        const hasContentDifferences = serverMessages.some((serverMsg, index) => {
+                            const localMsg = prevMessages[index];
+                            return !localMsg || 
+                                   serverMsg.content !== localMsg.content || 
+                                   serverMsg.role !== localMsg.role;
+                        });
+                        
+                        if (hasContentDifferences) {
+                            console.log('📝 Message content differs, updating from server');
+                            return serverMessages;
+                        }
+                    }
+                    
+                    console.log('📝 Local messages are up to date, keeping current state');
+                    return prevMessages;
+                });
+                
                 setCurrentConversation(conv);
+                
+                // Update this conversation in the conversations list
                 setConversations(prevConvs => {
-                    return sortConversations(prevConvs.map(c =>
+                    return sortConversations(prevConvs.map(c => 
                         c.id === conv.id ? {
-                            ...c,
+                            ...c, 
                             title: conv.title,
                             updated_at: conv.updated_at,
                             message_count: (conv.messages || []).length
@@ -243,9 +292,8 @@ export default function Chatbot() {
                     ));
                 });
             }
-        } catch (err) {
-            if (handleAuthError(err, navigate)) return;
-            console.error('Error fetching conversation:', err);
+        } catch (error) {
+            console.error('Error fetching conversation:', error);
         }
     };
 
@@ -276,155 +324,371 @@ export default function Chatbot() {
         return singleLine.length > maxLen ? singleLine.slice(0, maxLen) + '...' : singleLine;
     };
 
-    // Improved streaming handler
-    const handleStreamingResponse = async (response) => {
-        if (!response.body) {
-            throw new Error('No response body');
+    // Helper function to simulate streaming effect for specific message index
+    const simulateStreamingEffect = async (content, targetIndex) => {
+        if (!content || targetIndex === null || targetIndex === undefined) return;
+        
+        console.log('🎭 Simulating streaming effect for message index:', targetIndex, 'content:', content.substring(0, 50) + '...');
+        
+        // Update the specific message with streaming content
+        const words = content.split(' ');
+        
+        for (let i = 0; i < words.length; i++) {
+            const partial = words.slice(0, i + 1).join(' ');
+            
+            // Update the specific message in the messages array
+            setMessages(prevMessages => {
+                const newMessages = [...prevMessages];
+                if (newMessages[targetIndex]) {
+                    newMessages[targetIndex] = {
+                        ...newMessages[targetIndex],
+                        content: partial,
+                        isStreaming: true
+                    };
+                }
+                return newMessages;
+            });
+            
+            await new Promise(resolve => setTimeout(resolve, 30));
+        }
+        
+        // Set final content and remove streaming flag
+        setMessages(prevMessages => {
+            const newMessages = [...prevMessages];
+            if (newMessages[targetIndex]) {
+                newMessages[targetIndex] = {
+                    ...newMessages[targetIndex],
+                    content: content,
+                    isStreaming: false
+                };
+            }
+            return newMessages;
+        });
+    };
+
+    // Enhanced streaming handler with debugging
+    const handleStreamingResponse = async (response, abortController = null) => {
+        console.log('🔄 Starting streaming response...', response);
+        
+        if (!response || !response.body) {
+            console.error('❌ No response body available');
+            throw new Error('No response body available');
         }
 
+        // Check if response is ok
+        if (!response.ok) {
+            console.error('❌ HTTP error:', response.status);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        console.log('✅ Response OK, getting reader...');
         const reader = response.body.getReader();
         let partial = '';
         let totalBytes = 0;
+        let chunkCount = 0;
         const contentLength = response.headers.get('Content-Length');
         const expectedLength = contentLength ? parseInt(contentLength, 10) : null;
 
+        console.log('📊 Content-Length:', expectedLength);
+
+        // Reset streaming states
+        setStreamingError(null);
+        setStreamingProgress(0);
+
         try {
+            console.log('🚀 Starting to read chunks...');
             while (true) {
+                // Check if request was aborted
+                if (abortController && abortController.signal.aborted) {
+                    console.log('⏹️ Request was aborted');
+                    throw new Error('Request was aborted');
+                }
+
                 const { value, done } = await reader.read();
-                if (done) break;
-                
-                totalBytes += value.length;
-                if (expectedLength) {
-                    setStreamingProgress(Math.round((totalBytes / expectedLength) * 100));
+                if (done) {
+                    console.log('✅ Streaming complete!', { totalBytes, chunkCount });
+                    break;
                 }
                 
-                const chunk = new TextDecoder().decode(value);
+                chunkCount++;
+                totalBytes += value.length;
+                
+                console.log(`📦 Chunk ${chunkCount}: ${value.length} bytes`);
+                
+                // Update progress tracking
+                if (expectedLength && expectedLength > 0) {
+                    const progressPercent = Math.round((totalBytes / expectedLength) * 100);
+                    setStreamingProgress(Math.min(progressPercent, 100));
+                    console.log(`📈 Progress: ${progressPercent}%`);
+                }
+                
+                // Decode and accumulate response
+                const chunk = new TextDecoder('utf-8').decode(value, { stream: true });
                 partial += chunk;
+                
+                console.log(`📝 Partial content length: ${partial.length}`);
+                
+                // Update streaming response state
                 setStreamingResponse(partial);
+                
+                // Small delay to see the streaming effect
+                await new Promise(resolve => setTimeout(resolve, 50));
             }
+
+            // Check for web search usage
+            const wasWebSearchUsed = response.headers.get('X-Web-Search-Used') === 'true';
+            if (wasWebSearchUsed) {
+                setAutoSearchActive(true);
+                console.log('🌐 Web search was used');
+            }
+
+            return {
+                content: partial,
+                webSearchUsed: wasWebSearchUsed,
+                totalBytes: totalBytes
+            };
+
         } catch (error) {
-            setStreamingError('Error reading stream: ' + error.message);
+            console.error('❌ Streaming error:', error);
+            
+            // Handle different types of errors
+            if (error.name === 'AbortError' || error.message.includes('aborted')) {
+                setStreamingError('Request was cancelled');
+                console.log('⏹️ Streaming was aborted by user');
+                return null;
+            } else if (error.message.includes('network')) {
+                setStreamingError('Network error during streaming. Please check your connection.');
+            } else {
+                setStreamingError('Error reading response: ' + error.message);
+            }
+            
             throw error;
         } finally {
+            // Cleanup
+            try {
+                reader.releaseLock();
+                console.log('🔓 Reader lock released');
+            } catch (e) {
+                console.warn('⚠️ Could not release reader lock:', e);
+            }
             setStreamingProgress(0);
         }
     };
 
-    // Remove handleSendMessage function and update handleSubmit to handle both cases
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!message.trim() || isLoading || isCooldown) return;
+        if (!message.trim() || !conversationId) return;
         
+        // Reset auto search indicator
         setAutoSearchActive(false);
         setReplyTo(null);
-        setStreamingError(null);
-        setStreamingProgress(0);
-        setIsLoading(true);
-        setError('');
-        
-        // Create new AbortController for this request
-        abortControllerRef.current = new AbortController();
-        
-        let convId = conversationId;
-        try {
-            // If no conversationId, create a new conversation first
-            if (!convId) {
-                const createResp = await api.post('/conversations/new', { title: 'New Conversation' });
-                if (createResp.data && createResp.data.conversation) {
-                    convId = createResp.data.conversation.id;
-                    setConversations([createResp.data.conversation]); // Only set the new conversation
-                    setConversationId(convId);
-                } else {
-                    setError('Failed to create new conversation.');
-                    setIsLoading(false);
-                    return;
-                }
-            }
 
-            // Only append the user message
-            const userMessage = {
-                role: 'user',
-                content: message,
+        // Build the user message
+        const userMessage = {
+            role: 'user',
+            content: message,
+        };
+
+        // Add reply context if available
+        if (replyTo && replyTo.msg) {
+            userMessage.replyTo = { 
+                index: replyTo.index, 
+                content: replyTo.msg.content 
             };
-            if (replyTo && replyTo.msg) {
-                userMessage.replyTo = {
-                    index: replyTo.index,
-                    content: replyTo.msg.content
-                };
-            }
-            const fileId = uploadedFile?.file_id || null;
-            if (uploadedFileDisplay && fileId) {
-                userMessage.hasFile = true;
-                userMessage.fileName = uploadedFileDisplay;
-                userMessage.file_id = fileId;
-            }
-            setMessages(prevMessages => [...prevMessages, userMessage]);
-            setMessage('');
-            setStreamingResponse('');
+        }
+
+        // Add file information if available
+        const fileId = uploadedFile?.file_id || null;
+        if (uploadedFileDisplay && fileId) {
+            userMessage.hasFile = true;
+            userMessage.fileName = uploadedFileDisplay;
+            userMessage.file_id = fileId;
+        }
+        
+        // Immediately update local state with file information
+        const newMessageIndex = messages.length;
+        setMessages(prevMessages => [...prevMessages, userMessage]);
+        setMessage('');
+        setIsLoading(true);
+        setStreamingResponse('');
+        
+        try {
+            // Send the message to the server
+            const token = localStorage.getItem('userToken');
             
-            const endpoint = webSearchEnabled
-                ? `/conversations/${convId}/web_search`
-                : `/chat/${convId}`;
+            // Determine which endpoint to use based on webSearchEnabled
+            const endpoint = webSearchEnabled 
+                ? `${API_BASE_URL}/conversations/${conversationId}/web_search` 
+                : `${API_BASE_URL}/chat/${conversationId}`;
+            
             const payloadData = {
                 message,
-                force_web_search: webSearchEnabled,
-                replyTo: replyTo?.msg ? {
-                    index: replyTo.index,
+                force_web_search: false,
+                replyTo: replyTo?.msg ? { 
+                    index: replyTo.index, 
                     content: replyTo.msg.content,
                     isCurrentVersion: true
                 } : undefined,
-                file_id: fileId
+                file_id: fileId // Send file_id to the server
             };
 
-            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+            console.log('🚀 Sending message with payload:', payloadData);
+            console.log('🎯 Endpoint:', endpoint);
+            
+            // Create abort controller for this request
+            const abortController = new AbortController();
+            abortControllerRef.current = abortController;
+
+            console.log('📡 Making fetch request...');
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('userToken')}`
+                    'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify(payloadData),
-                signal: abortControllerRef.current.signal
+                signal: abortController.signal
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            await handleStreamingResponse(response);
+            console.log('📥 Response received:', response.status, response.headers.get('content-type'));
             
-            const wasWebSearchUsed = webSearchEnabled || response.headers.get('X-Web-Search-Used') === 'true';
-            if (wasWebSearchUsed) {
-                setAutoSearchActive(true);
+            // Check if the response is streaming (should be text/plain or text/event-stream)
+            const contentType = response.headers.get('content-type') || '';
+            console.log('📋 Content-Type:', contentType);
+            
+            if (contentType.includes('text/plain') || contentType.includes('text/event-stream') || contentType.includes('application/octet-stream')) {
+                // Use the enhanced streaming handler
+                console.log('🔄 Calling handleStreamingResponse...');
+                const streamResult = await handleStreamingResponse(response, abortController);
+                
+                // Handle abort case
+                if (streamResult === null) {
+                    return; // Request was aborted
+                }
+                
+                // Add the streamed response to messages immediately to prevent blinking
+                if (streamResult && streamResult.content) {
+                    const assistantMessage = {
+                        role: 'assistant',
+                        content: streamResult.content
+                    };
+                    
+                    // Add reply context if this was a reply
+                    if (replyTo && replyTo.msg) {
+                        assistantMessage.replyTo = { 
+                            index: replyTo.index, 
+                            content: replyTo.msg.content 
+                        };
+                    }
+                    
+                    setMessages(prevMessages => {
+                        // Check if this message already exists to prevent duplicates
+                        const lastMessage = prevMessages[prevMessages.length - 1];
+                        if (lastMessage && lastMessage.role === 'assistant' && 
+                            lastMessage.content === streamResult.content) {
+                            console.log('🚫 Duplicate assistant message detected, skipping');
+                            return prevMessages;
+                        }
+                        return [...prevMessages, assistantMessage];
+                    });
+                }
+                
+                // Clear streaming response after adding to messages
+                setStreamingResponse('');
+                
+            } else {
+                // Handle non-streaming response (JSON)
+                console.log('📄 Non-streaming response detected, handling as JSON...');
+                const responseData = await response.json();
+                console.log('📋 Response data:', responseData);
+                
+                // If we have message content, show it as if it was streamed
+                if (responseData.message || responseData.content) {
+                    const content = responseData.message || responseData.content;
+                    console.log('💬 Got content:', content);
+                    
+                    // Simulate streaming effect for non-streaming responses
+                    setStreamingResponse('');
+                    const words = content.split(' ');
+                    for (let i = 0; i < words.length; i++) {
+                        const partial = words.slice(0, i + 1).join(' ');
+                        setStreamingResponse(partial);
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                    }
+                    
+                    // Add the response to messages immediately
+                    const assistantMessage = {
+                        role: 'assistant',
+                        content: content
+                    };
+                    
+                    // Add reply context if this was a reply
+                    if (replyTo && replyTo.msg) {
+                        assistantMessage.replyTo = { 
+                            index: replyTo.index, 
+                            content: replyTo.msg.content 
+                        };
+                    }
+                    
+                    setMessages(prevMessages => {
+                        // Check if this message already exists to prevent duplicates
+                        const lastMessage = prevMessages[prevMessages.length - 1];
+                        if (lastMessage && lastMessage.role === 'assistant' && 
+                            lastMessage.content === content) {
+                            console.log('🚫 Duplicate assistant message detected, skipping');
+                            return prevMessages;
+                        }
+                        return [...prevMessages, assistantMessage];
+                    });
+                    setStreamingResponse(''); // Clear after adding to messages
+                }
             }
-            // After streaming, update messages from backend only (do not append assistant response manually)
-            setStreamingResponse('');
-            await fetchConversation(convId);
+            
+            // Delay fetching conversation to avoid conflicts with local state
+            setTimeout(async () => {
+                try {
+                    await fetchConversation();
+                    console.log('🔄 Conversation synced with server');
+                } catch (error) {
+                    console.warn('⚠️ Failed to sync conversation:', error);
+                }
+            }, 2000);
+            
+            // Reset web search mode after sending
+            setWebSearchEnabled(false);
+            
+            // Clear uploaded file after sending
             setUploadedFile(null);
             setUploadedFileDisplay(null);
             setFileLocked(false);
-        } catch (error) {
-            if (error.name === 'AbortError') {
-                console.log('Request was aborted');
-                return;
-            }
             
-            // Handle 429 Too Many Requests
-            if (error.message.includes('429') || error.response?.status === 429) {
-                setError('You are sending messages too quickly. Please wait a few seconds and try again.');
-                setIsCooldown(true);
-                cooldownTimeoutRef.current = setTimeout(() => setIsCooldown(false), 5000);
+        } catch (error) {
+            // Handle different types of errors
+            if (error.name === 'AbortError' || error.message.includes('aborted')) {
+                console.log('Message sending was cancelled');
                 return;
             }
             
             console.error('Error sending message:', error);
-            if (error.message.includes('404')) {
+            
+            // Set appropriate error messages
+            if (error.message.includes('Failed to fetch') || error.message.includes('network')) {
+                setError('Network error. Please check your connection and try again.');
+            } else if (error.message.includes('404')) {
                 setError('Conversation not found. Creating a new one...');
                 handleNewChat();
+            } else if (error.message.includes('401') || error.message.includes('403')) {
+                setError('Authentication error. Please sign in again.');
+                localStorage.removeItem('userToken');
+                navigate('/signin');
             } else {
                 setError('Failed to send message. Please try again.');
             }
         } finally {
             setIsLoading(false);
+            // Don't clear streamingResponse here as it might already be cleared
+            // and we don't want to interfere with the display
+            setStreamingError(null);
             setStreamingProgress(0);
             abortControllerRef.current = null;
         }
@@ -642,21 +906,25 @@ export default function Chatbot() {
                 setUploadStatus('Message edited successfully');
                 setTimeout(() => setUploadStatus(''), 3000);
 
-                // --- Regenerate assistant response for the edited message ---
-                // Show spinner in place of assistant message while regenerating
-                setIsLoading(true);
-                setStreamingResponse('');
-                try {
-                    // Only call the edit endpoint to update the user message
-                    // No call to /regenerate
-                    await fetchConversation(conversationId);
-                    setError('');
-                } catch (fetchErr) {
-                    setError('Failed to update conversation after editing message.');
-                } finally {
-                    setIsLoading(false);
+                // --- Show streaming effect for the new assistant response ---
+                const assistantMsgIndex = index + 1;
+                if (response.data.conversation.messages[assistantMsgIndex] && 
+                    response.data.conversation.messages[assistantMsgIndex].role === 'assistant') {
+                    
+                    const assistantContent = response.data.conversation.messages[assistantMsgIndex].content;
+                    console.log('🎬 Starting streaming effect for edited message response');
+                    
+                    // First show loading state for the assistant message
+                    setRegeneratingResponse(assistantMsgIndex);
+                    
+                    // Small delay to show loading state
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    // Clear loading state and start streaming
+                    setRegeneratingResponse(null);
+                    await simulateStreamingEffect(assistantContent, assistantMsgIndex);
                 }
-                // --- End regeneration logic ---
+                // --- End streaming effect ---
             }
         } catch (err) {
             if (handleAuthError(err, navigate)) return;
@@ -703,25 +971,118 @@ export default function Chatbot() {
     const handlePairVersionToggle = (userMsgIdx, direction) => {
         setPairVersionIdx(prev => {
             const msg = messages[userMsgIdx];
-            const assistantMsg = messages[userMsgIdx + 1];
             const versions = msg && msg.versions ? msg.versions.length : 0;
             let current = prev[userMsgIdx] || 0;
             let next = current + direction;
+            
+            // Ensure next is within bounds (0 to total versions)
             if (next < 0) next = 0;
-            if (versions && next > versions) next = versions;
+            if (next > versions) next = versions;
+            
             return { ...prev, [userMsgIdx]: next };
         });
     };
 
+    // Submit a selected version and get new AI response
+    const handleSubmitVersion = async (msgIndex, versionIndex) => {
+        if (!conversationId || isLoading) return;
+        
+        const msg = messages[msgIndex];
+        if (!msg || !msg.versions || versionIndex <= 0) return;
+        
+        // Get the version content (versionIndex - 1 because versionIndex=1 means first version)
+        const versionContent = msg.versions[versionIndex - 1]?.content;
+        if (!versionContent) return;
+        
+        // Track which assistant response is being regenerated
+        const assistantMsgIndex = msgIndex + 1;
+        setRegeneratingResponse(assistantMsgIndex);
+        setError('');
+        
+        try {
+            const token = localStorage.getItem('userToken');
+            const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages/${msgIndex}/edit`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    content: versionContent,
+                    original_content: msg.content
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (data.conversation) {
+                // Update the conversation with new messages
+                setMessages(data.conversation.messages || []);
+                setCurrentConversation(data.conversation);
+                
+                // --- Show streaming effect for the new assistant response ---
+                const newAssistantMsgIndex = msgIndex + 1;
+                if (data.conversation.messages[newAssistantMsgIndex] && 
+                    data.conversation.messages[newAssistantMsgIndex].role === 'assistant') {
+                    
+                    const assistantContent = data.conversation.messages[newAssistantMsgIndex].content;
+                    console.log('🎬 Starting streaming effect for version submission response');
+                    
+                    // Small delay to show loading state (regeneratingResponse is already set)
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    // Clear loading state and start streaming
+                    setRegeneratingResponse(null);
+                    await simulateStreamingEffect(assistantContent, newAssistantMsgIndex);
+                }
+                // --- End streaming effect ---
+                
+                // Reset version selection since we've now submitted this version as current
+                setPairVersionIdx(prev => ({ ...prev, [msgIndex]: 0 }));
+                
+                // Update conversations list
+                setConversations(prevConvs => {
+                    return sortConversations(prevConvs.map(c =>
+                        c.id === data.conversation.id ? {
+                            ...c,
+                            title: data.conversation.title,
+                            updated_at: data.conversation.updated_at,
+                            message_count: (data.conversation.messages || []).length
+                        } : c
+                    ));
+                });
+            }
+        } catch (error) {
+            console.error('Error submitting version:', error);
+            if (error.message.includes('404')) {
+                setError('Conversation not found. Please refresh and try again.');
+            } else {
+                setError('Failed to submit version. Please try again.');
+            }
+        } finally {
+            setRegeneratingResponse(null);
+        }
+    };
+
     // Helper to get the displayed content for a user+assistant pair version
     const getPairDisplayedContent = (msg, idx, isAssistant) => {
+        // If this message is currently streaming, show the streaming content
+        if (msg.isStreaming && msg.content) {
+            return msg.content;
+        }
+        
         const vIdx = pairVersionIdx[idx] || 0;
         if (msg.versions && msg.versions.length && vIdx > 0) {
-            // Most recent version is at the end
-            const version = msg.versions[msg.versions.length - vIdx];
+            // vIdx = 1 means first version, vIdx = 2 means second version, etc.
+            // versions[0] is the oldest, versions[length-1] is newest
+            const versionIndex = vIdx - 1; // Convert to 0-based index
+            const version = msg.versions[versionIndex];
             return version ? version.content : msg.content;
         }
-        return msg.content;
+        return msg.content; // vIdx = 0 means current/latest content
     };
 
     // Modified message input handler for textarea
@@ -735,7 +1096,9 @@ export default function Chatbot() {
     // Restore and update the fetch conversation effect for when conversationId changes
     useEffect(() => {
         if (!conversationId) return;
-        setMessages([]);
+        
+        // Don't clear messages immediately to prevent blinking
+        // setMessages([]);
         setCurrentConversation(null);
 
         const fetchCurrentConversation = async () => {
@@ -746,7 +1109,13 @@ export default function Chatbot() {
                 if (response.data && response.data.conversation) {
                     const conv = response.data.conversation;
                     // Update messages array with the conversation's messages
-                    setMessages(conv.messages || []);
+                    let messages = conv.messages || [];
+                    
+                    // Clear messages first, then set new ones to ensure clean state
+                    setMessages([]);
+                    setTimeout(() => {
+                        setMessages(messages);
+                    }, 50);
                     // Update current conversation state
                     setCurrentConversation(conv);
                     // Update the conversation in the conversations list
@@ -922,7 +1291,7 @@ export default function Chatbot() {
                         content: incomingMessage
                     };
                     setMessages(prevMessages => [...prevMessages, userMessage]);
-
+                    
                     // Send the message in the selected conversation
                     const payload = {
                         message: incomingMessage,
@@ -931,10 +1300,135 @@ export default function Chatbot() {
                         file_id: null
                     };
 
-                    await api.post(`/chat/${convId}`, payload, { responseType: 'text' });
+                    try {
+                        // Use streaming approach similar to handleSubmit
+                        const token = localStorage.getItem('userToken');
+                        const endpoint = `${API_BASE_URL}/chat/${convId}`;
+                        
+                        console.log('🚀 Sending navbar message with streaming support');
+                        
+                        // Create abort controller for this request
+                        const abortController = new AbortController();
+                        abortControllerRef.current = abortController;
 
-                    // Fetch the updated conversation (this will include the user and assistant messages)
-                    await fetchConversation(convId);
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify(payload),
+                            signal: abortController.signal
+                        });
+
+                        console.log('📥 Navbar response received:', response.status, response.headers.get('content-type'));
+                        
+                        // Check if the response is streaming
+                        const contentType = response.headers.get('content-type') || '';
+                        console.log('📋 Content-Type:', contentType);
+                        
+                        if (contentType.includes('text/plain') || contentType.includes('text/event-stream') || contentType.includes('application/octet-stream')) {
+                            // Use the enhanced streaming handler
+                            console.log('🔄 Using streaming for navbar message...');
+                            const streamResult = await handleStreamingResponse(response, abortController);
+                            
+                            // Clear streaming response after completion
+                            setStreamingResponse('');
+                            
+                            // Handle abort case
+                            if (streamResult === null) {
+                                return; // Request was aborted
+                            }
+                            
+                            // Add the streamed response to messages immediately to prevent blinking
+                            if (streamResult && streamResult.content) {
+                                const assistantMessage = {
+                                    role: 'assistant',
+                                    content: streamResult.content
+                                };
+                                
+                                setMessages(prevMessages => {
+                                    // Check if this message already exists to prevent duplicates
+                                    const lastMessage = prevMessages[prevMessages.length - 1];
+                                    if (lastMessage && lastMessage.role === 'assistant' && 
+                                        lastMessage.content === streamResult.content) {
+                                        console.log('🚫 Duplicate assistant message detected, skipping');
+                                        return prevMessages;
+                                    }
+                                    return [...prevMessages, assistantMessage];
+                                });
+                            }
+                            
+                        } else {
+                            // Handle non-streaming response (JSON)
+                            console.log('📄 Non-streaming response detected for navbar message');
+                            const responseData = await response.json();
+                            console.log('📋 Response data:', responseData);
+                            
+                            // If we have message content, show it as if it was streamed
+                            if (responseData.message || responseData.content) {
+                                const content = responseData.message || responseData.content;
+                                console.log('💬 Got content:', content);
+                                
+                                // Simulate streaming effect for non-streaming responses
+                                setStreamingResponse('');
+                                const words = content.split(' ');
+                                for (let i = 0; i < words.length; i++) {
+                                    const partial = words.slice(0, i + 1).join(' ');
+                                    setStreamingResponse(partial);
+                                    await new Promise(resolve => setTimeout(resolve, 50));
+                                }
+                                
+                                // Add the response to messages immediately
+                                const assistantMessage = {
+                                    role: 'assistant',
+                                    content: content
+                                };
+                                
+                                setMessages(prevMessages => {
+                                    // Check if this message already exists to prevent duplicates
+                                    const lastMessage = prevMessages[prevMessages.length - 1];
+                                    if (lastMessage && lastMessage.role === 'assistant' && 
+                                        lastMessage.content === content) {
+                                        console.log('🚫 Duplicate assistant message detected, skipping');
+                                        return prevMessages;
+                                    }
+                                    return [...prevMessages, assistantMessage];
+                                });
+                                setStreamingResponse(''); // Clear after adding to messages
+                            }
+                        }
+                        
+                        // Delay fetching conversation to avoid conflicts with local state
+                        setTimeout(async () => {
+                            try {
+                                await fetchConversation();
+                                console.log('🔄 Navbar conversation synced with server');
+                            } catch (error) {
+                                console.warn('⚠️ Failed to sync navbar conversation:', error);
+                            }
+                        }, 2000);
+                        
+                    } catch (apiError) {
+                        // Handle different types of errors
+                        if (apiError.name === 'AbortError' || apiError.message.includes('aborted')) {
+                            console.log('Navbar message sending was cancelled');
+                            return;
+                        }
+                        
+                        console.error('Error sending navbar message:', apiError);
+                        
+                        // Set appropriate error messages
+                        if (apiError.message.includes('Failed to fetch') || apiError.message.includes('network')) {
+                            setError('Network error. Please check your connection and try again.');
+                        } else if (apiError.message.includes('401') || apiError.message.includes('403')) {
+                            setError('Authentication error. Please sign in again.');
+                            localStorage.removeItem('userToken');
+                            navigate('/signin');
+                        } else {
+                            setError('Failed to send message. Please try again.');
+                        }
+                    }
 
                     setWebSearchEnabled(false);
                     setReplyTo(null);
@@ -991,7 +1485,7 @@ export default function Chatbot() {
                 onSelectConversation={setConversationId}
             />
             {/* Main chat area */}
-            <div className="flex-1 flex flex-col" style={{position: 'relative', zIndex: 1, overflow: 'hidden'}}>
+            <div className="flex-1 flex flex-col" style={{position: 'relative', zIndex: 1}}>
                 {/* Starfield/particle animated background */}
                 <CyberBackgroundChatBot />
                 {/* Chat header */}
@@ -1026,25 +1520,118 @@ export default function Chatbot() {
                             {error}
                         </div>
                     )}
+                    
+                    {streamingError && (
+                        <div className="p-4 bg-yellow-50 text-yellow-700 rounded-md mb-4 flex items-center justify-between">
+                            <span>{streamingError}</span>
+                            <button
+                                onClick={() => setStreamingError(null)}
+                                className="ml-2 text-yellow-500 hover:text-yellow-700"
+                                style={{ background: 'none', border: 'none', fontSize: '16px', cursor: 'pointer' }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                    )}
                     <div className="space-y-6">
                         {messages.map((msg, index) => {
                             if (msg.role === 'user') {
                                 const isEditing = editingMsgIdx === index;
+                                const hasVersions = msg.versions && msg.versions.length > 0;
+                                const currentVersionIdx = pairVersionIdx[index] || 0;
+                                const totalVersions = hasVersions ? msg.versions.length + 1 : 1; // +1 for original
+                                const nextMsgIsAssistant = messages[index + 1] && messages[index + 1].role === 'assistant';
+                                const assistantHasVersions = nextMsgIsAssistant && messages[index + 1].versions && messages[index + 1].versions.length > 0;
+                                
                                 return (
                                     <div key={index} style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', alignItems: 'flex-end' }}>
-                                        <div className={style.userBubble} style={{ position: 'relative', minWidth: 80 }}>
-                                            {/* File icon at top left if message has file */}
-                                            {msg.hasFile || msg.file_id ? (
-                                                <div style={{ position: 'absolute', top: -16, left: -16, display: 'flex', alignItems: 'center', zIndex: 3 }}>
-                                                    <FaFileAlt style={{ color: '#9ca3af', background: 'var(--navbar_background)', borderRadius: '50%', fontSize: 18 }} title="This message is about an uploaded file" />
-                                                    {msg.fileName || msg.file_name || msg.filename ? (
-                                                        <span style={{ marginLeft: 6, color: '#9ca3af', fontSize: 13, fontWeight: 500, background: 'var(--navbar_background)', padding: '0 6px', borderRadius: 6, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {msg.fileName || msg.file_name || msg.filename}
-                                                        </span>
-                                                    ) : null}
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                            {/* Version controls for user+assistant pair */}
+                                            {(hasVersions || assistantHasVersions) && (
+                                                <div style={{ 
+                                                    display: 'flex', 
+                                                    alignItems: 'center', 
+                                                    gap: '8px', 
+                                                    marginBottom: '8px',
+                                                    padding: '4px 8px',
+                                                    background: 'rgba(156, 163, 175, 0.1)',
+                                                    borderRadius: '12px',
+                                                    fontSize: '12px',
+                                                    color: '#6b7280'
+                                                }}>
+                                                    <button
+                                                        onClick={() => handlePairVersionToggle(index, -1)}
+                                                        disabled={currentVersionIdx === 0}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: currentVersionIdx === 0 ? '#d1d5db' : '#6b7280',
+                                                            cursor: currentVersionIdx === 0 ? 'not-allowed' : 'pointer',
+                                                            padding: '2px 4px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '14px'
+                                                        }}
+                                                        title="Previous version"
+                                                    >
+                                                        ←
+                                                    </button>
+                                                    <span style={{ fontSize: '11px', fontWeight: '500' }}>
+                                                        {currentVersionIdx + 1} / {totalVersions}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handlePairVersionToggle(index, 1)}
+                                                        disabled={currentVersionIdx >= totalVersions - 1}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: currentVersionIdx >= totalVersions - 1 ? '#d1d5db' : '#6b7280',
+                                                            cursor: currentVersionIdx >= totalVersions - 1 ? 'not-allowed' : 'pointer',
+                                                            padding: '2px 4px',
+                                                            borderRadius: '4px',
+                                                            fontSize: '14px'
+                                                        }}
+                                                        title="Next version"
+                                                    >
+                                                        →
+                                                    </button>
+                                                    
+                                                    {/* Submit version button - only show if not on current version */}
+                                                    {currentVersionIdx > 0 && (
+                                                        <button
+                                                            onClick={() => handleSubmitVersion(index, currentVersionIdx)}
+                                                            disabled={regeneratingResponse !== null}
+                                                            style={{
+                                                                background: '#10b981',
+                                                                border: 'none',
+                                                                color: 'white',
+                                                                cursor: regeneratingResponse !== null ? 'not-allowed' : 'pointer',
+                                                                padding: '3px 6px',
+                                                                borderRadius: '4px',
+                                                                fontSize: '10px',
+                                                                fontWeight: '600',
+                                                                marginLeft: '4px'
+                                                            }}
+                                                            title="Submit this version and get new response"
+                                                        >
+                                                            {regeneratingResponse === (index + 1) ? '...' : '✓'}
+                                                        </button>
+                                                    )}
                                                 </div>
-                                            ) : null}
-                                            {/* Pencil icon, absolutely positioned to overlap left edge, vertically centered */}
+                                            )}
+                                            
+                                            <div className={style.userBubble} style={{ position: 'relative', minWidth: 80 }}>
+                                                {/* File icon at top left if message has file */}
+                                                {msg.hasFile || msg.file_id ? (
+                                                    <div style={{ position: 'absolute', top: -16, left: -16, display: 'flex', alignItems: 'center', zIndex: 3 }}>
+                                                        <FaFileAlt style={{ color: '#9ca3af', background: 'var(--navbar_background)', borderRadius: '50%', fontSize: 18 }} title="This message is about an uploaded file" />
+                                                        {msg.fileName || msg.file_name || msg.filename ? (
+                                                            <span style={{ marginLeft: 6, color: '#9ca3af', fontSize: 13, fontWeight: 500, background: 'var(--navbar_background)', padding: '0 6px', borderRadius: 6, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {msg.fileName || msg.file_name || msg.filename}
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                ) : null}
+                                                                                            {/* Pencil icon, absolutely positioned to overlap left edge, vertically centered */}
                                             {!isEditing && (
                                                 <button
                                                     className="p-0 text-gray-400 focus:outline-none transition"
@@ -1072,67 +1659,114 @@ export default function Chatbot() {
                                                     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.8 2.8a1.13 1.13 0 0 1 1.6 1.6l-8.2 8.2-2.2.6.6-2.2 8.2-8.2z"></path></svg>
                                                 </button>
                                             )}
-                                            {/* Editing input */}
-                                            {isEditing ? (
-                                                <form
-                                                    onSubmit={async e => {
-                                                        e.preventDefault();
-                                                        const prevMessages = [...messages];
-                                                        setMessages(msgs => {
-                                                            const newMsgs = [...msgs];
-                                                            newMsgs[index] = { ...newMsgs[index], content: editingMsgValue };
-                                                            return newMsgs;
-                                                        });
-                                                        await handleEditSubmit(index, prevMessages);
+                                            
+                                            {/* Version control icon, next to pencil icon */}
+                                            {!isEditing && (hasVersions || assistantHasVersions) && (
+                                                <button
+                                                    className="p-0 text-gray-400 focus:outline-none transition"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: '-42px',
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        minWidth: 22,
+                                                        minHeight: 22,
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        boxShadow: 'none',
+                                                        color: '#9ca3af',
+                                                        zIndex: 2
                                                     }}
-                                                    style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 80 }}
+                                                    onClick={() => {
+                                                        const currentVersionIdx = pairVersionIdx[index] || 0;
+                                                        const totalVersions = hasVersions ? msg.versions.length + 1 : 1;
+                                                        const nextVersion = currentVersionIdx + 1;
+                                                        
+                                                        if (nextVersion < totalVersions) {
+                                                            // Move to next version
+                                                            handlePairVersionToggle(index, 1);
+                                                        } else {
+                                                            // Cycle back to first version (current content)
+                                                            handlePairVersionToggle(index, -(currentVersionIdx));
+                                                        }
+                                                    }}
+                                                    title={`Switch version (${(pairVersionIdx[index] || 0) + 1}/${hasVersions ? msg.versions.length + 1 : 1})`}
+                                                    aria-label="Toggle message version"
                                                 >
-                                                    <input
-                                                        className="rounded-md border border-gray-200 dark:border-gray-700 bg-[var(--body_background)] dark:bg-[var(--navbar_background)] text-[var(--text_color)] px-2 py-0.5 text-xs shadow-sm focus:ring-1 focus:ring-blue-400 focus:border-blue-400 outline-none transition mb-1 font-medium"
-                                                        value={editingMsgValue}
-                                                        onChange={handleEditInputChange}
-                                                        autoFocus
-                                                        disabled={editLoading}
-                                                        maxLength={4000}
-                                                        style={{ minHeight: 22, fontSize: '0.89rem', fontWeight: 500, boxShadow: '0 1px 4px 0 rgba(41,45,50,0.05)' }}
-                                                        placeholder="Edit..."
-                                                    />
-                                                    {editError && <div className="text-xs text-red-500 mb-1">{editError}</div>}
-                                                    <div style={{ display: 'flex', gap: '0.2rem', marginTop: 1 }}>
-                                                        <button
-                                                            type="submit"
-                                                            className="px-1.5 py-0.5 rounded bg-blue-500 text-white font-semibold transition text-xs flex items-center gap-1 shadow-sm"
-                                                            disabled={editLoading || !editingMsgValue.trim() || editingMsgValue.length > 4000}
-                                                            style={{ minWidth: 0, fontSize: '0.85rem', height: 22 }}
-                                                        >
-                                                            {editLoading ? <FaSpinner className="animate-spin" size={11} /> : <FaCheck size={11} />}
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-100 font-semibold transition text-xs flex items-center gap-1 shadow-sm"
-                                                            onClick={() => { setEditingMsgIdx(null); setEditingMsgValue(''); setEditError(''); }}
-                                                            disabled={editLoading}
-                                                            style={{ minWidth: 0, fontSize: '0.85rem', height: 22 }}
-                                                        >
-                                                            <FaTimes size={11} />
-                                                        </button>
-                                                    </div>
-                                                </form>
-                                            ) : (
-                                                <ReactMarkdown components={components}>
-                                                    {getPairDisplayedContent(msg, index)}
-                                                </ReactMarkdown>
+                                                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                        <rect x="4" y="4" width="8" height="8" rx="1"/>
+                                                        <rect x="2" y="2" width="8" height="8" rx="1"/>
+                                                    </svg>
+                                                </button>
                                             )}
+                                                {/* Editing input */}
+                                                {isEditing ? (
+                                                    <form
+                                                        onSubmit={async e => {
+                                                            e.preventDefault();
+                                                            const prevMessages = [...messages];
+                                                            setMessages(msgs => {
+                                                                const newMsgs = [...msgs];
+                                                                newMsgs[index] = { ...newMsgs[index], content: editingMsgValue };
+                                                                return newMsgs;
+                                                            });
+                                                            await handleEditSubmit(index, prevMessages);
+                                                        }}
+                                                        style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 80 }}
+                                                    >
+                                                        <input
+                                                            className="rounded-md border border-gray-200 dark:border-gray-700 bg-[var(--body_background)] dark:bg-[var(--navbar_background)] text-[var(--text_color)] px-2 py-0.5 text-xs shadow-sm focus:ring-1 focus:ring-blue-400 focus:border-blue-400 outline-none transition mb-1 font-medium"
+                                                            value={editingMsgValue}
+                                                            onChange={handleEditInputChange}
+                                                            autoFocus
+                                                            disabled={editLoading}
+                                                            maxLength={4000}
+                                                            style={{ minHeight: 22, fontSize: '0.89rem', fontWeight: 500, boxShadow: '0 1px 4px 0 rgba(41,45,50,0.05)' }}
+                                                            placeholder="Edit..."
+                                                        />
+                                                        {editError && <div className="text-xs text-red-500 mb-1">{editError}</div>}
+                                                        <div style={{ display: 'flex', gap: '0.2rem', marginTop: 1 }}>
+                                                            <button
+                                                                type="submit"
+                                                                className="px-1.5 py-0.5 rounded bg-blue-500 text-white font-semibold transition text-xs flex items-center gap-1 shadow-sm"
+                                                                disabled={editLoading || !editingMsgValue.trim() || editingMsgValue.length > 4000}
+                                                                style={{ minWidth: 0, fontSize: '0.85rem', height: 22 }}
+                                                            >
+                                                                {editLoading ? <FaSpinner className="animate-spin" size={11} /> : <FaCheck size={11} />}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="px-1.5 py-0.5 rounded bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-100 font-semibold transition text-xs flex items-center gap-1 shadow-sm"
+                                                                onClick={() => { setEditingMsgIdx(null); setEditingMsgValue(''); setEditError(''); }}
+                                                                disabled={editLoading}
+                                                                style={{ minWidth: 0, fontSize: '0.85rem', height: 22 }}
+                                                            >
+                                                                <FaTimes size={11} />
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                ) : (
+                                                    <ReactMarkdown components={components}>
+                                                        {getPairDisplayedContent(msg, index)}
+                                                    </ReactMarkdown>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 );
                             } else if (msg.role === 'assistant') {
+                                const isRegenerating = regeneratingResponse === index;
+                                const isStreamingThis = msg.isStreaming;
                                 return (
                                     <div key={index} style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
                                         <div className={style.assistantBubble}>
-                                            <ReactMarkdown components={components}>
-                                                {getPairDisplayedContent(msg, index, true)}
-                                            </ReactMarkdown>
+                                            {isRegenerating ? (
+                                                <div className={style.spinner}></div>
+                                            ) : (
+                                                <ReactMarkdown components={components}>
+                                                    {getPairDisplayedContent(msg, index, true)}
+                                                </ReactMarkdown>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -1141,10 +1775,62 @@ export default function Chatbot() {
                         })}
                         {streamingResponse && (
                             <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
-                                <div className={style.assistantBubble}>
+                                <div className={style.assistantBubble} style={{ position: 'relative' }}>
                                     <ReactMarkdown components={components}>
                                         {streamingResponse}
                                     </ReactMarkdown>
+                                    
+                                    {/* Cancel streaming button */}
+                                    {abortControllerRef.current && (
+                                        <button
+                                            onClick={() => {
+                                                if (abortControllerRef.current) {
+                                                    abortControllerRef.current.abort();
+                                                    setStreamingResponse('');
+                                                    setIsLoading(false);
+                                                }
+                                            }}
+                                            style={{
+                                                position: 'absolute',
+                                                top: '6px',
+                                                right: '6px',
+                                                background: 'rgba(239, 68, 68, 0.1)',
+                                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                borderRadius: '3px',
+                                                color: '#ef4444',
+                                                fontSize: '10px',
+                                                padding: '2px 6px',
+                                                cursor: 'pointer',
+                                                zIndex: 10,
+                                                minWidth: 'auto',
+                                                height: '20px'
+                                            }}
+                                            title="Stop generation"
+                                        >
+                                            Stop
+                                        </button>
+                                    )}
+                                    
+                                    {/* Progress indicator */}
+                                    {streamingProgress > 0 && streamingProgress < 100 && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: '0',
+                                            left: '0',
+                                            right: '0',
+                                            height: '2px',
+                                            background: 'rgba(59, 130, 246, 0.2)',
+                                            borderRadius: '0 0 8px 8px'
+                                        }}>
+                                            <div style={{
+                                                height: '100%',
+                                                background: '#3b82f6',
+                                                width: `${streamingProgress}%`,
+                                                transition: 'width 0.3s ease',
+                                                borderRadius: '0 0 8px 0'
+                                            }} />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
