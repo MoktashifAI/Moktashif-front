@@ -83,6 +83,7 @@ export default function Chatbot() {
     const [conversationFiles, setConversationFiles] = useState([]);
     const [fileListMode, setFileListMode] = useState('all'); // 'all' or 'conversation'
     const [regeneratingResponse, setRegeneratingResponse] = useState(null); // Track which message is being regenerated
+    const [handlingNavbarMessage, setHandlingNavbarMessage] = useState(false); // Track if we're processing a navbar message
 
     // Clean up ?message=... from the URL on load
     useEffect(() => {
@@ -159,6 +160,15 @@ export default function Chatbot() {
 
     // --- Conversation fetch ---
     const fetchConversations = useCallback(async () => {
+        // Don't fetch conversations if there's a navbar message - let the navbar handler do it
+        const searchParams = new URLSearchParams(location.search);
+        const incomingMessage = searchParams.get('message');
+        
+        if (incomingMessage || handlingNavbarMessage) {
+            console.log('🚫 Skipping fetchConversations due to navbar message');
+            return;
+        }
+        
         try {
             setIsLoading(true);
             const response = await api.get('/conversations');
@@ -177,7 +187,7 @@ export default function Chatbot() {
         } finally {
             setIsLoading(false);
         }
-    }, [retryCount, navigate]);
+    }, [retryCount, navigate, location.search, handlingNavbarMessage]);
 
     useEffect(() => {
         fetchConversations();
@@ -595,6 +605,8 @@ export default function Chatbot() {
                 
                 // Clear streaming response after adding to messages
                 setStreamingResponse('');
+                // Clear loading state since streaming is complete
+                setIsLoading(false);
                 
             } else {
                 // Handle non-streaming response (JSON)
@@ -641,6 +653,8 @@ export default function Chatbot() {
                         return [...prevMessages, assistantMessage];
                     });
                     setStreamingResponse(''); // Clear after adding to messages
+                    // Clear loading state since non-streaming response is complete
+                    setIsLoading(false);
                 }
             }
             
@@ -666,10 +680,14 @@ export default function Chatbot() {
             // Handle different types of errors
             if (error.name === 'AbortError' || error.message.includes('aborted')) {
                 console.log('Message sending was cancelled');
+                setIsLoading(false); // Clear loading on abort
                 return;
             }
             
             console.error('Error sending message:', error);
+            
+            // Clear loading state on error
+            setIsLoading(false);
             
             // Set appropriate error messages
             if (error.message.includes('Failed to fetch') || error.message.includes('network')) {
@@ -685,7 +703,8 @@ export default function Chatbot() {
                 setError('Failed to send message. Please try again.');
             }
         } finally {
-            setIsLoading(false);
+            // Only clear loading if there was an error or abort - successful responses clear it themselves
+            // setIsLoading(false); // Moved to individual response handlers
             // Don't clear streamingResponse here as it might already be cleared
             // and we don't want to interfere with the display
             setStreamingError(null);
@@ -1097,9 +1116,15 @@ export default function Chatbot() {
     useEffect(() => {
         if (!conversationId) return;
         
-        // Don't clear messages immediately to prevent blinking
+        // Don't fetch if we're handling a navbar message
+        if (handlingNavbarMessage) {
+            console.log('🚫 Skipping conversation fetch due to navbar message handling');
+            return;
+        }
+        
+        // Don't clear messages or conversation immediately to prevent blinking
         // setMessages([]);
-        setCurrentConversation(null);
+        // setCurrentConversation(null);
 
         const fetchCurrentConversation = async () => {
             if (!conversationId) return;
@@ -1111,11 +1136,8 @@ export default function Chatbot() {
                     // Update messages array with the conversation's messages
                     let messages = conv.messages || [];
                     
-                    // Clear messages first, then set new ones to ensure clean state
-                    setMessages([]);
-                    setTimeout(() => {
-                        setMessages(messages);
-                    }, 50);
+                    // Set messages directly without clearing to prevent blinking
+                    setMessages(messages);
                     // Update current conversation state
                     setCurrentConversation(conv);
                     // Update the conversation in the conversations list
@@ -1142,12 +1164,24 @@ export default function Chatbot() {
         };
 
         fetchCurrentConversation();
-    }, [conversationId]);
+    }, [conversationId, handlingNavbarMessage]);
 
     // Restore the effect for ensuring new users have a conversation
     useEffect(() => {
         const createNewConversationIfNeeded = async () => {
-            if (!conversationId && conversations.length === 0) {
+            // Check if there's a navbar message parameter - if so, don't create empty conversation
+            const searchParams = new URLSearchParams(location.search);
+            const incomingMessage = searchParams.get('message');
+            
+            console.log('🔄 createNewConversationIfNeeded:', {
+                conversationId,
+                conversationsLength: conversations.length,
+                incomingMessage: !!incomingMessage,
+                shouldCreateConversation: !conversationId && conversations.length === 0 && !incomingMessage
+            });
+            
+            if (!conversationId && conversations.length === 0 && !incomingMessage) {
+                console.log('✅ Creating new conversation for user with no conversations and no navbar message');
                 try {
                     const response = await api.post(
                         '/conversations/new',
@@ -1169,14 +1203,25 @@ export default function Chatbot() {
                         setError('Failed to create new conversation. Please try again.');
                     }
                 }
-            } else if (!conversationId && conversations.length > 0) {
+            } else if (!conversationId && conversations.length > 0 && !incomingMessage) {
                 // If no conversation is selected but we have conversations, set the first one
+                // Don't do this if there's an incoming navbar message
+                console.log('✅ Selecting first existing conversation');
                 setConversationId(conversations[0].id);
+            } else {
+                console.log('🚫 Skipping conversation creation:', {
+                    reason: incomingMessage ? 'navbar message present' : 
+                           conversationId ? 'conversation already selected' : 
+                           'conversations exist'
+                });
             }
         };
 
-        createNewConversationIfNeeded();
-    }, [conversationId, conversations]);
+        // Only run this effect if conversations have been loaded and we're not handling a navbar message
+        if (conversationsLoaded && !handlingNavbarMessage) {
+            createNewConversationIfNeeded();
+        }
+    }, [conversationId, conversations, location.search, conversationsLoaded, handlingNavbarMessage]);
 
     // Add function to fetch previously uploaded files
     const fetchPreviousFiles = useCallback(async () => {
@@ -1258,6 +1303,9 @@ export default function Chatbot() {
         const incomingMessage = searchParams.get('message');
         
         if (incomingMessage) {
+            console.log('🚀 Navbar message detected:', incomingMessage);
+            setHandlingNavbarMessage(true); // Prevent other effects from interfering
+            
             const sendInitialMessage = async () => {
                 setMessage("");
                 setIsLoading(true);
@@ -1268,29 +1316,63 @@ export default function Chatbot() {
                     const response = await api.get('/conversations');
                     let userConvs = sortConversations(response.data.conversations || []);
                     setConversations(userConvs);
+                    setConversationsLoaded(true); // Mark as loaded to prevent other effects from creating conversations
 
-                    if (userConvs.length > 0) {
-                        convId = userConvs[0].id;
+                    console.log('📋 Fetched conversations for navbar message:', userConvs.length);
+
+                    // For navbar messages, prefer conversations with existing messages
+                    // If no conversations exist or all conversations are empty, create a new one
+                    const conversationsWithMessages = userConvs.filter(conv => 
+                        (conv.messages && conv.messages.length > 0) || 
+                        (conv.message_count && conv.message_count > 0)
+                    );
+
+                    console.log('📋 Conversations with messages:', conversationsWithMessages.length);
+
+                    if (conversationsWithMessages.length > 0) {
+                        // Use the most recent conversation that has messages
+                        convId = conversationsWithMessages[0].id;
+                        console.log('✅ Using existing conversation with messages:', convId);
                         setConversationId(convId);
+                        
+                        // Load the existing conversation messages first
+                        const convResponse = await api.get(`/conversations/${convId}`);
+                        if (convResponse.data && convResponse.data.conversation) {
+                            const existingMessages = convResponse.data.conversation.messages || [];
+                            setCurrentConversation(convResponse.data.conversation);
+                            
+                            // Add the user message to existing messages
+                            const userMessage = {
+                                role: 'user',
+                                content: incomingMessage
+                            };
+                            console.log('📝 Adding navbar message to existing conversation with', existingMessages.length, 'messages');
+                            setMessages([...existingMessages, userMessage]);
+                        }
                     } else {
+                        // Create a new conversation for the navbar message
+                        console.log('🆕 Creating new conversation for navbar message');
                         const createResp = await api.post('/conversations/new', { title: 'New Conversation' });
                         if (createResp.data && createResp.data.conversation) {
                             convId = createResp.data.conversation.id;
-                            setConversations([createResp.data.conversation]);
+                            console.log('✅ Created new conversation:', convId);
+                            setConversations(prev => sortConversations([createResp.data.conversation, ...prev]));
                             setConversationId(convId);
+                            setCurrentConversation(createResp.data.conversation);
+                            
+                            // Add the user message to the new empty conversation
+                            const userMessage = {
+                                role: 'user',
+                                content: incomingMessage
+                            };
+                            console.log('📝 Adding navbar message to new conversation');
+                            setMessages([userMessage]);
                         } else {
                             setError('Failed to create new conversation.');
                             setIsLoading(false);
                             return;
                         }
                     }
-
-                    // Add the user message immediately to the chat
-                    const userMessage = {
-                        role: 'user',
-                        content: incomingMessage
-                    };
-                    setMessages(prevMessages => [...prevMessages, userMessage]);
                     
                     // Send the message in the selected conversation
                     const payload = {
@@ -1334,6 +1416,8 @@ export default function Chatbot() {
                             
                             // Clear streaming response after completion
                             setStreamingResponse('');
+                            // Clear loading state since streaming is complete
+                            setIsLoading(false);
                             
                             // Handle abort case
                             if (streamResult === null) {
@@ -1396,27 +1480,26 @@ export default function Chatbot() {
                                     return [...prevMessages, assistantMessage];
                                 });
                                 setStreamingResponse(''); // Clear after adding to messages
+                                // Clear loading state since non-streaming response is complete
+                                setIsLoading(false);
                             }
                         }
                         
-                        // Delay fetching conversation to avoid conflicts with local state
-                        setTimeout(async () => {
-                            try {
-                                await fetchConversation();
-                                console.log('🔄 Navbar conversation synced with server');
-                            } catch (error) {
-                                console.warn('⚠️ Failed to sync navbar conversation:', error);
-                            }
-                        }, 2000);
+                        // Note: No need to fetch conversation again since we've already loaded it above
+                        console.log('🔄 Navbar message successfully sent');
                         
                     } catch (apiError) {
                         // Handle different types of errors
                         if (apiError.name === 'AbortError' || apiError.message.includes('aborted')) {
                             console.log('Navbar message sending was cancelled');
+                            setIsLoading(false); // Clear loading on abort
                             return;
                         }
                         
                         console.error('Error sending navbar message:', apiError);
+                        
+                        // Clear loading state on error
+                        setIsLoading(false);
                         
                         // Set appropriate error messages
                         if (apiError.message.includes('Failed to fetch') || apiError.message.includes('network')) {
@@ -1437,6 +1520,7 @@ export default function Chatbot() {
                     setFileLocked(false);
                 } catch (err) {
                     console.error('Error sending message:', err);
+                    setIsLoading(false); // Clear loading on error
                     if (err.response?.status === 404) {
                         setError('Conversation not found. Creating a new one...');
                         handleNewChat();
@@ -1444,7 +1528,8 @@ export default function Chatbot() {
                         setError('Failed to send message. Please try again.');
                     }
                 } finally {
-                    setIsLoading(false);
+                    // Only clear navbar flag, not loading state (handled in success/error cases)
+                    setHandlingNavbarMessage(false); // Reset the flag
                 }
                 // Clear the URL parameter
                 navigate(location.pathname, { replace: true });
