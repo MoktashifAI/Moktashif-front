@@ -148,7 +148,7 @@ const Sidebar = ({
                             whileHover={{ scale: 1.07 }}
                             whileTap={{ scale: 0.97 }}
                         >
-                            + New Chat
+                            + New Conversation
                         </motion.button>
                         {/* Conversations list or search results */}
                         <div style={{ flex: 1, overflowY: 'auto' }}>

@@ -1308,6 +1308,7 @@ export default function Chatbot() {
             
             const sendInitialMessage = async () => {
                 setMessage("");
+                console.log('🔧 Setting loading to true for navbar message');
                 setIsLoading(true);
                 setError("");
                 let convId = null;
@@ -1414,11 +1415,6 @@ export default function Chatbot() {
                             console.log('🔄 Using streaming for navbar message...');
                             const streamResult = await handleStreamingResponse(response, abortController);
                             
-                            // Clear streaming response after completion
-                            setStreamingResponse('');
-                            // Clear loading state since streaming is complete
-                            setIsLoading(false);
-                            
                             // Handle abort case
                             if (streamResult === null) {
                                 return; // Request was aborted
@@ -1442,6 +1438,11 @@ export default function Chatbot() {
                                     return [...prevMessages, assistantMessage];
                                 });
                             }
+                            
+                            // Clear loading and streaming states
+                            console.log('🔧 Navbar streaming complete - clearing loading state');
+                            setIsLoading(false);
+                            setStreamingResponse('');
                             
                         } else {
                             // Handle non-streaming response (JSON)
@@ -1479,9 +1480,10 @@ export default function Chatbot() {
                                     }
                                     return [...prevMessages, assistantMessage];
                                 });
-                                setStreamingResponse(''); // Clear after adding to messages
-                                // Clear loading state since non-streaming response is complete
+                                // Clear loading and streaming states
+                                console.log('🔧 Navbar non-streaming complete - clearing loading state');
                                 setIsLoading(false);
+                                setStreamingResponse(''); // Clear after adding to messages
                             }
                         }
                         
@@ -1920,6 +1922,7 @@ export default function Chatbot() {
                             </div>
                         )}
                         {isLoading && !streamingResponse && (
+                            console.log('🔧 Showing loading spinner - isLoading:', isLoading, 'streamingResponse:', streamingResponse?.length || 0),
                             <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
                                 <div className={style.assistantBubble}>
                                     <div className={style.spinner}></div>
