@@ -155,12 +155,87 @@ export default function Results() {
       }
     });
 
-    // Add beautiful small watermark at the bottom center
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(92, 135, 255); // #5c87ff
-    doc.text('Moktashif', 105, 285, { align: 'center' });
-    doc.setTextColor(0, 0, 0); // Reset color
+    // Add image watermark at the bottom center
+    try {
+      const imageUrl = 'https://res.cloudinary.com/dnsne0e82/image/upload/v1749924553/Moktashef/USERS/WhatsApp_Image_2025-06-14_at_21.05.49_e4383adc_vbhtxs.jpg';
+      
+      // Create a new image element to load the image
+      const img = new Image();
+      img.crossOrigin = 'anonymous'; // Handle CORS
+      
+      // Convert image to base64 and add to PDF
+      await new Promise((resolve, reject) => {
+        img.onload = () => {
+          try {
+            // Create a canvas to convert image to base64
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size to image size
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            // Draw image on canvas
+            ctx.drawImage(img, 0, 0);
+            
+            // Get base64 data
+            const imgData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Calculate image dimensions for watermark (larger size with proper margins)
+            const maxWidth = 100; // Larger width for better visibility
+            const maxHeight = 50; // Larger height for better visibility
+            
+            let imgWidth = img.width;
+            let imgHeight = img.height;
+            
+            // Scale down the image proportionally
+            if (imgWidth > maxWidth || imgHeight > maxHeight) {
+              const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+              imgWidth = imgWidth * ratio;
+              imgHeight = imgHeight * ratio;
+            }
+            
+            // Add image watermark with proper bottom margin to ensure visibility
+            const x = (doc.internal.pageSize.getWidth() - imgWidth) / 2; // Center horizontally
+            const y = 260; // Moved higher up from bottom with proper margin
+            
+            doc.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
+            resolve();
+          } catch (error) {
+            console.error('Error processing image:', error);
+            // Fallback to text watermark if image fails
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(92, 135, 255); // #5c87ff
+            doc.text('Moktashif', 105, 285, { align: 'center' });
+            doc.setTextColor(0, 0, 0); // Reset color
+            resolve();
+          }
+        };
+        
+        img.onerror = () => {
+          console.error('Error loading watermark image');
+          // Fallback to text watermark if image fails to load
+          doc.setFontSize(18);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(92, 135, 255); // #5c87ff
+          doc.text('Moktashif', 105, 285, { align: 'center' });
+          doc.setTextColor(0, 0, 0); // Reset color
+          resolve();
+        };
+        
+        img.src = imageUrl;
+      });
+      
+    } catch (error) {
+      console.error('Error adding image watermark:', error);
+      // Fallback to text watermark if anything goes wrong
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(92, 135, 255); // #5c87ff
+      doc.text('Moktashif', 105, 285, { align: 'center' });
+      doc.setTextColor(0, 0, 0); // Reset color
+    }
 
     // Save the PDF
     doc.save('vulnerability-scan-report.pdf');
@@ -394,10 +469,10 @@ export default function Results() {
                       <td>
                         <Link
                           target="_blank"
-                          to={vuln.learn_more_url}
+                          to={vuln.link}
                           className={style.learnMoreButton}
                         >
-                          {vuln.learn_more_url ? "Learn More" : "N/A"}
+                          {vuln.link ? "Learn More" : "N/A"}
                         </Link>
                       </td>
                     </tr>

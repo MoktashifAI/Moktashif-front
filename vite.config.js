@@ -9,12 +9,12 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/conversations': 'http://localhost:5000',
-      '/chat': 'http://localhost:5000',
-      '/upload': 'http://localhost:5000',
-      '/file': 'http://localhost:5000',
-      '/user': 'http://localhost:5000',
-    },
-    historyApiFallback: true
+      // Only proxy API endpoints to backend
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
+      }
+    }
   },
 })

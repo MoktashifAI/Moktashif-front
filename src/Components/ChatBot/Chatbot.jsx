@@ -6,14 +6,14 @@ import ReactMarkdown from 'react-markdown';
 import { PrismLight as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Sidebar from './Sidebar';
-import { FaPaperclip, FaHistory, FaSpinner, FaFileAlt, FaCheckCircle, FaTimesCircle, FaEdit, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaPaperclip, FaHistory, FaSpinner, FaFileAlt, FaCheckCircle, FaTimesCircle, FaEdit, FaCheck, FaTimes, FaCopy } from 'react-icons/fa';
 import { FiArrowUp, FiGlobe, FiFile } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import CyberBackgroundChatBot from './CyberBackgroundChatBot';
 import FileSelector from './FileSelector';
 
-// Configure axios with base URL
-const API_BASE_URL = 'http://localhost:5000'; // Change this to your Flask backend URL
+// Configure axios with base URL - using /api prefix for all backend calls
+const API_BASE_URL = '/api'; // All API calls will be proxied through Vite
 const api = axios.create({
     baseURL: API_BASE_URL
 });
@@ -233,7 +233,7 @@ export default function Chatbot() {
         
         try {
             const token = localStorage.getItem('userToken');
-            const response = await axios.get(`${API_BASE_URL}/conversations/${conversationId}`, {
+            const response = await axios.get(`/api/conversations/${conversationId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             
@@ -332,6 +332,30 @@ export default function Chatbot() {
         if (!content) return '';
         const singleLine = content.replace(/\s+/g, ' ').trim();
         return singleLine.length > maxLen ? singleLine.slice(0, maxLen) + '...' : singleLine;
+    };
+
+    // Helper function to copy message content to clipboard
+    const copyToClipboard = async (content) => {
+        try {
+            await navigator.clipboard.writeText(content);
+            // You could add a toast notification here if desired
+            console.log('Content copied to clipboard');
+        } catch (err) {
+            console.error('Failed to copy content: ', err);
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = content;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                console.log('Content copied to clipboard (fallback)');
+            } catch (fallbackErr) {
+                console.error('Fallback copy failed: ', fallbackErr);
+            }
+            document.body.removeChild(textArea);
+        }
     };
 
     // Helper function to simulate streaming effect for specific message index
@@ -528,8 +552,8 @@ export default function Chatbot() {
             
             // Determine which endpoint to use based on webSearchEnabled
             const endpoint = webSearchEnabled 
-                ? `${API_BASE_URL}/conversations/${conversationId}/web_search` 
-                : `${API_BASE_URL}/chat/${conversationId}`;
+                ? `/api/conversations/${conversationId}/web_search` 
+                : `/api/chat/${conversationId}`;
             
             const payloadData = {
                 message,
@@ -562,12 +586,16 @@ export default function Chatbot() {
 
             console.log('📥 Response received:', response.status, response.headers.get('content-type'));
             
+            // Check if this is a web search response (disable streaming for web search)
+            const isWebSearchResponse = response.headers.get('X-Web-Search-Used') === 'true' || webSearchEnabled;
+            
             // Check if the response is streaming (should be text/plain or text/event-stream)
             const contentType = response.headers.get('content-type') || '';
             console.log('📋 Content-Type:', contentType);
+            console.log('🌐 Is Web Search Response:', isWebSearchResponse);
             
-            if (contentType.includes('text/plain') || contentType.includes('text/event-stream') || contentType.includes('application/octet-stream')) {
-                // Use the enhanced streaming handler
+            if (!isWebSearchResponse && (contentType.includes('text/plain') || contentType.includes('text/event-stream') || contentType.includes('application/octet-stream'))) {
+                // Use the enhanced streaming handler for non-web-search responses
                 console.log('🔄 Calling handleStreamingResponse...');
                 const streamResult = await handleStreamingResponse(response, abortController);
                 
@@ -607,6 +635,66 @@ export default function Chatbot() {
                 setStreamingResponse('');
                 // Clear loading state since streaming is complete
                 setIsLoading(false);
+                
+            } else if (isWebSearchResponse && contentType.includes('text/plain')) {
+                // Handle web search streaming response as non-streaming (read all at once)
+                console.log('🌐 Handling web search response as non-streaming...');
+                const reader = response.body.getReader();
+                let fullContent = '';
+                
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        
+                        const chunk = new TextDecoder('utf-8').decode(value, { stream: true });
+                        fullContent += chunk;
+                    }
+                    
+                    // Set auto search indicator
+                    setAutoSearchActive(true);
+                    
+                    // Add the complete response to messages immediately
+                    if (fullContent) {
+                        const assistantMessage = {
+                            role: 'assistant',
+                            content: fullContent
+                        };
+                        
+                        // Add reply context if this was a reply
+                        if (replyTo && replyTo.msg) {
+                            assistantMessage.replyTo = { 
+                                index: replyTo.index, 
+                                content: replyTo.msg.content 
+                            };
+                        }
+                        
+                        setMessages(prevMessages => {
+                            // Check if this message already exists to prevent duplicates
+                            const lastMessage = prevMessages[prevMessages.length - 1];
+                            if (lastMessage && lastMessage.role === 'assistant' && 
+                                lastMessage.content === fullContent) {
+                                console.log('🚫 Duplicate assistant message detected, skipping');
+                                return prevMessages;
+                            }
+                            return [...prevMessages, assistantMessage];
+                        });
+                    }
+                    
+                    // Clear loading state
+                    setIsLoading(false);
+                    
+                } catch (error) {
+                    console.error('Error reading web search response:', error);
+                    setError('Failed to read web search response. Please try again.');
+                    setIsLoading(false);
+                } finally {
+                    try {
+                        reader.releaseLock();
+                    } catch (e) {
+                        console.warn('Could not release reader lock:', e);
+                    }
+                }
                 
             } else {
                 // Handle non-streaming response (JSON)
@@ -1386,7 +1474,7 @@ export default function Chatbot() {
                     try {
                         // Use streaming approach similar to handleSubmit
                         const token = localStorage.getItem('userToken');
-                        const endpoint = `${API_BASE_URL}/chat/${convId}`;
+                        const endpoint = `/api/chat/${convId}`;
                         
                         console.log('🚀 Sending navbar message with streaming support');
                         
@@ -1406,12 +1494,16 @@ export default function Chatbot() {
 
                         console.log('📥 Navbar response received:', response.status, response.headers.get('content-type'));
                         
+                        // Check if this is a web search response (navbar messages are always regular chat, not web search)
+                        const isWebSearchResponse = response.headers.get('X-Web-Search-Used') === 'true';
+                        
                         // Check if the response is streaming
                         const contentType = response.headers.get('content-type') || '';
                         console.log('📋 Content-Type:', contentType);
+                        console.log('🌐 Is Navbar Web Search Response:', isWebSearchResponse);
                         
-                        if (contentType.includes('text/plain') || contentType.includes('text/event-stream') || contentType.includes('application/octet-stream')) {
-                            // Use the enhanced streaming handler
+                        if (!isWebSearchResponse && (contentType.includes('text/plain') || contentType.includes('text/event-stream') || contentType.includes('application/octet-stream'))) {
+                            // Use the enhanced streaming handler for non-web-search responses
                             console.log('🔄 Using streaming for navbar message...');
                             const streamResult = await handleStreamingResponse(response, abortController);
                             
@@ -1443,6 +1535,60 @@ export default function Chatbot() {
                             console.log('🔧 Navbar streaming complete - clearing loading state');
                             setIsLoading(false);
                             setStreamingResponse('');
+                            
+                        } else if (isWebSearchResponse && contentType.includes('text/plain')) {
+                            // Handle navbar web search response as non-streaming (read all at once)
+                            console.log('🌐 Handling navbar web search response as non-streaming...');
+                            const reader = response.body.getReader();
+                            let fullContent = '';
+                            
+                            try {
+                                while (true) {
+                                    const { value, done } = await reader.read();
+                                    if (done) break;
+                                    
+                                    const chunk = new TextDecoder('utf-8').decode(value, { stream: true });
+                                    fullContent += chunk;
+                                }
+                                
+                                // Set auto search indicator
+                                setAutoSearchActive(true);
+                                
+                                // Add the complete response to messages immediately
+                                if (fullContent) {
+                                    const assistantMessage = {
+                                        role: 'assistant',
+                                        content: fullContent
+                                    };
+                                    
+                                    setMessages(prevMessages => {
+                                        // Check if this message already exists to prevent duplicates
+                                        const lastMessage = prevMessages[prevMessages.length - 1];
+                                        if (lastMessage && lastMessage.role === 'assistant' && 
+                                            lastMessage.content === fullContent) {
+                                            console.log('🚫 Duplicate assistant message detected, skipping');
+                                            return prevMessages;
+                                        }
+                                        return [...prevMessages, assistantMessage];
+                                    });
+                                }
+                                
+                                // Clear loading and streaming states
+                                console.log('🔧 Navbar web search complete - clearing loading state');
+                                setIsLoading(false);
+                                setStreamingResponse('');
+                                
+                            } catch (error) {
+                                console.error('Error reading navbar web search response:', error);
+                                setError('Failed to read web search response. Please try again.');
+                                setIsLoading(false);
+                            } finally {
+                                try {
+                                    reader.releaseLock();
+                                } catch (e) {
+                                    console.warn('Could not release reader lock:', e);
+                                }
+                            }
                             
                         } else {
                             // Handle non-streaming response (JSON)
@@ -1718,15 +1864,38 @@ export default function Chatbot() {
                                                         ) : null}
                                                     </div>
                                                 ) : null}
-                                                                                            {/* Pencil icon, absolutely positioned to overlap left edge, vertically centered */}
+                                                                                            {/* Copy icon, absolutely positioned to overlap left edge */}
                                             {!isEditing && (
                                                 <button
-                                                    className="p-0 text-gray-400 focus:outline-none transition"
+                                                    className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
                                                     style={{
                                                         position: 'absolute',
-                                                        left: '-18px',
-                                                        top: '50%',
-                                                        transform: 'translateY(-50%)',
+                                                        left: '-28px',
+                                                        top: '12px',
+                                                        minWidth: 22,
+                                                        minHeight: 22,
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        boxShadow: 'none',
+                                                        color: '#9ca3af',
+                                                        zIndex: 2
+                                                    }}
+                                                    onClick={() => copyToClipboard(getPairDisplayedContent(msg, index))}
+                                                    title="Copy message"
+                                                    aria-label="Copy message"
+                                                >
+                                                    <FaCopy size={13} />
+                                                </button>
+                                            )}
+
+                                            {/* Pencil icon, next to copy icon */}
+                                            {!isEditing && (
+                                                <button
+                                                    className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: '-52px',
+                                                        top: '12px',
                                                         minWidth: 22,
                                                         minHeight: 22,
                                                         background: 'none',
@@ -1750,12 +1919,11 @@ export default function Chatbot() {
                                             {/* Version control icon, next to pencil icon */}
                                             {!isEditing && (hasVersions || assistantHasVersions) && (
                                                 <button
-                                                    className="p-0 text-gray-400 focus:outline-none transition"
+                                                    className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
                                                     style={{
                                                         position: 'absolute',
-                                                        left: '-42px',
-                                                        top: '50%',
-                                                        transform: 'translateY(-50%)',
+                                                        left: '-76px',
+                                                        top: '12px',
                                                         minWidth: 22,
                                                         minHeight: 22,
                                                         background: 'none',
@@ -1845,7 +2013,31 @@ export default function Chatbot() {
                                 const isRegenerating = regeneratingResponse === index;
                                 const isStreamingThis = msg.isStreaming;
                                 return (
-                                    <div key={index} style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+                                    <div key={index} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
+                                        {/* Copy icon above the message */}
+                                        {!isRegenerating && (
+                                            <button
+                                                className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
+                                                style={{
+                                                    marginBottom: '4px',
+                                                    marginLeft: '8px',
+                                                    minWidth: 22,
+                                                    minHeight: 22,
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    boxShadow: 'none',
+                                                    color: '#9ca3af',
+                                                    zIndex: 2,
+                                                    alignSelf: 'flex-start'
+                                                }}
+                                                onClick={() => copyToClipboard(getPairDisplayedContent(msg, index, true))}
+                                                title="Copy message"
+                                                aria-label="Copy message"
+                                            >
+                                                <FaCopy size={13} />
+                                            </button>
+                                        )}
+                                        
                                         <div className={style.assistantBubble}>
                                             {isRegenerating ? (
                                                 <div className={style.spinner}></div>
@@ -1861,7 +2053,29 @@ export default function Chatbot() {
                             return null;
                         })}
                         {streamingResponse && (
-                            <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
+                                {/* Copy icon above the streaming response */}
+                                <button
+                                    className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
+                                    style={{
+                                        marginBottom: '4px',
+                                        marginLeft: '8px',
+                                        minWidth: 22,
+                                        minHeight: 22,
+                                        background: 'none',
+                                        border: 'none',
+                                        boxShadow: 'none',
+                                        color: '#9ca3af',
+                                        zIndex: 2,
+                                        alignSelf: 'flex-start'
+                                    }}
+                                    onClick={() => copyToClipboard(streamingResponse)}
+                                    title="Copy message"
+                                    aria-label="Copy message"
+                                >
+                                    <FaCopy size={13} />
+                                </button>
+                                
                                 <div className={style.assistantBubble} style={{ position: 'relative' }}>
                                     <ReactMarkdown components={components}>
                                         {streamingResponse}
@@ -1923,7 +2137,7 @@ export default function Chatbot() {
                         )}
                         {isLoading && !streamingResponse && (
                             console.log('🔧 Showing loading spinner - isLoading:', isLoading, 'streamingResponse:', streamingResponse?.length || 0),
-                            <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: '100%' }}>
                                 <div className={style.assistantBubble}>
                                     <div className={style.spinner}></div>
                                 </div>
