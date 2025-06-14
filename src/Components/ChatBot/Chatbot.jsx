@@ -234,7 +234,7 @@ export default function Chatbot() {
         
         try {
             const token = localStorage.getItem('userToken');
-            const response = await axios.get(`/conversations/${conversationId}`, {
+            const response = await axios.get(`/api/conversations/${conversationId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             

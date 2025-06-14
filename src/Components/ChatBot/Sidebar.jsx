@@ -34,11 +34,12 @@ const Sidebar = ({
         const timeout = setTimeout(async () => {
             try {
                 const token = localStorage.getItem('userToken');
-                const res = await axios.get(`/conversations/search?q=${encodeURIComponent(search)}`, {
+                const res = await axios.get(`/api/conversations/search?q=${encodeURIComponent(search)}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 setSearchResults(res.data.results || []);
             } catch (err) {
+                console.error('Search failed:', err);
                 setSearchResults([]);
             } finally {
                 setSearching(false);
