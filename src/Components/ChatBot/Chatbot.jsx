@@ -8,7 +8,6 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import Sidebar from './Sidebar';
 import { FaPaperclip, FaHistory, FaSpinner, FaFileAlt, FaCheckCircle, FaTimesCircle, FaEdit, FaCheck, FaTimes, FaCopy } from 'react-icons/fa';
 import { FiArrowUp, FiGlobe, FiFile } from 'react-icons/fi';
-import { motion } from 'framer-motion';
 import CyberBackgroundChatBot from './CyberBackgroundChatBot';
 import FileSelector from './FileSelector';
 
@@ -30,7 +29,8 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
     response => response,
     error => {
-        if (error.response?.status === 401 || error.response?.status === 404 || error.response?.status === 422) {
+        // Only logout on 401 (Unauthorized) errors, not on 404 or 422
+        if (error.response?.status === 401) {
             localStorage.removeItem('userToken');
             window.location.href = '/signin';
         }
@@ -150,7 +150,8 @@ export default function Chatbot() {
 
     // --- API error handler helper ---
     function handleAuthError(err, navigate) {
-        if (err.response?.status === 401 || err.response?.status === 404 || err.response?.status === 422) {
+        // Only treat 401 as authentication error that requires logout
+        if (err.response?.status === 401) {
             localStorage.removeItem('userToken');
             navigate('/signin');
             return true;
@@ -233,7 +234,7 @@ export default function Chatbot() {
         
         try {
             const token = localStorage.getItem('userToken');
-            const response = await axios.get(`/api/conversations/${conversationId}`, {
+            const response = await axios.get(`/conversations/${conversationId}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             
@@ -1649,14 +1650,16 @@ export default function Chatbot() {
                         // Clear loading state on error
                         setIsLoading(false);
                         
-                        // Set appropriate error messages
+                        // Set appropriate error messages - be more lenient with navbar messages
                         if (apiError.message.includes('Failed to fetch') || apiError.message.includes('network')) {
                             setError('Network error. Please check your connection and try again.');
-                        } else if (apiError.message.includes('401') || apiError.message.includes('403')) {
+                        } else if (apiError.response?.status === 401) {
+                            // Only logout on explicit 401 responses, not on other errors
                             setError('Authentication error. Please sign in again.');
                             localStorage.removeItem('userToken');
                             navigate('/signin');
                         } else {
+                            // For other errors, just show a generic message without logging out
                             setError('Failed to send message. Please try again.');
                         }
                     }
@@ -1778,182 +1781,181 @@ export default function Chatbot() {
                                 
                                 return (
                                     <div key={index} style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', alignItems: 'flex-end' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                            {/* Version controls for user+assistant pair */}
-                                            {(hasVersions || assistantHasVersions) && (
-                                                <div style={{ 
-                                                    display: 'flex', 
-                                                    alignItems: 'center', 
-                                                    gap: '8px', 
-                                                    marginBottom: '8px',
-                                                    padding: '4px 8px',
-                                                    background: 'rgba(156, 163, 175, 0.1)',
-                                                    borderRadius: '12px',
-                                                    fontSize: '12px',
-                                                    color: '#6b7280'
-                                                }}>
-                                                    <button
-                                                        onClick={() => handlePairVersionToggle(index, -1)}
-                                                        disabled={currentVersionIdx === 0}
-                                                        style={{
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: currentVersionIdx === 0 ? '#d1d5db' : '#6b7280',
-                                                            cursor: currentVersionIdx === 0 ? 'not-allowed' : 'pointer',
-                                                            padding: '2px 4px',
-                                                            borderRadius: '4px',
-                                                            fontSize: '14px'
-                                                        }}
-                                                        title="Previous version"
-                                                    >
-                                                        ←
-                                                    </button>
-                                                    <span style={{ fontSize: '11px', fontWeight: '500' }}>
-                                                        {currentVersionIdx + 1} / {totalVersions}
-                                                    </span>
-                                                    <button
-                                                        onClick={() => handlePairVersionToggle(index, 1)}
-                                                        disabled={currentVersionIdx >= totalVersions - 1}
-                                                        style={{
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: currentVersionIdx >= totalVersions - 1 ? '#d1d5db' : '#6b7280',
-                                                            cursor: currentVersionIdx >= totalVersions - 1 ? 'not-allowed' : 'pointer',
-                                                            padding: '2px 4px',
-                                                            borderRadius: '4px',
-                                                            fontSize: '14px'
-                                                        }}
-                                                        title="Next version"
-                                                    >
-                                                        →
-                                                    </button>
-                                                    
-                                                    {/* Submit version button - only show if not on current version */}
-                                                    {currentVersionIdx > 0 && (
-                                                        <button
-                                                            onClick={() => handleSubmitVersion(index, currentVersionIdx)}
-                                                            disabled={regeneratingResponse !== null}
-                                                            style={{
-                                                                background: '#10b981',
-                                                                border: 'none',
-                                                                color: 'white',
-                                                                cursor: regeneratingResponse !== null ? 'not-allowed' : 'pointer',
-                                                                padding: '3px 6px',
-                                                                borderRadius: '4px',
-                                                                fontSize: '10px',
-                                                                fontWeight: '600',
-                                                                marginLeft: '4px'
-                                                            }}
-                                                            title="Submit this version and get new response"
-                                                        >
-                                                            {regeneratingResponse === (index + 1) ? '...' : '✓'}
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                            
-                                            <div className={style.userBubble} style={{ position: 'relative', minWidth: 80 }}>
-                                                {/* File icon at top left if message has file */}
-                                                {msg.hasFile || msg.file_id ? (
-                                                    <div style={{ position: 'absolute', top: -16, left: -16, display: 'flex', alignItems: 'center', zIndex: 3 }}>
-                                                        <FaFileAlt style={{ color: '#9ca3af', background: 'var(--navbar_background)', borderRadius: '50%', fontSize: 18 }} title="This message is about an uploaded file" />
-                                                        {msg.fileName || msg.file_name || msg.filename ? (
-                                                            <span style={{ marginLeft: 6, color: '#9ca3af', fontSize: 13, fontWeight: 500, background: 'var(--navbar_background)', padding: '0 6px', borderRadius: 6, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                {msg.fileName || msg.file_name || msg.filename}
-                                                            </span>
-                                                        ) : null}
-                                                    </div>
-                                                ) : null}
-                                                                                            {/* Copy icon, absolutely positioned to overlap left edge */}
-                                            {!isEditing && (
-                                                <button
-                                                    className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
-                                                    style={{
-                                                        position: 'absolute',
-                                                        left: '-28px',
-                                                        top: '12px',
-                                                        minWidth: 22,
-                                                        minHeight: 22,
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        boxShadow: 'none',
-                                                        color: '#9ca3af',
-                                                        zIndex: 2
-                                                    }}
-                                                    onClick={() => copyToClipboard(getPairDisplayedContent(msg, index))}
-                                                    title="Copy message"
-                                                    aria-label="Copy message"
-                                                >
-                                                    <FaCopy size={13} />
-                                                </button>
-                                            )}
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                {/* Version controls for user+assistant pair */}
+                                {(hasVersions || assistantHasVersions) && (
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '8px', 
+                                        marginBottom: '8px',
+                                        padding: '4px 8px',
+                                        background: 'rgba(156, 163, 175, 0.1)',
+                                        borderRadius: '12px',
+                                        fontSize: '12px',
+                                        color: '#6b7280'
+                                    }}>
+                                        <button
+                                            onClick={() => handlePairVersionToggle(index, -1)}
+                                            disabled={currentVersionIdx === 0}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: currentVersionIdx === 0 ? '#d1d5db' : '#6b7280',
+                                                cursor: currentVersionIdx === 0 ? 'not-allowed' : 'pointer',
+                                                padding: '2px 4px',
+                                                borderRadius: '4px',
+                                                fontSize: '14px'
+                                            }}
+                                            title="Previous version"
+                                        >
+                                            ←
+                                        </button>
+                                        <span style={{ fontSize: '11px', fontWeight: '500' }}>
+                                            {currentVersionIdx + 1} / {totalVersions}
+                                        </span>
+                                        <button
+                                            onClick={() => handlePairVersionToggle(index, 1)}
+                                            disabled={currentVersionIdx >= totalVersions - 1}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: currentVersionIdx >= totalVersions - 1 ? '#d1d5db' : '#6b7280',
+                                                cursor: currentVersionIdx >= totalVersions - 1 ? 'not-allowed' : 'pointer',
+                                                padding: '2px 4px',
+                                                borderRadius: '4px',
+                                                fontSize: '14px'
+                                            }}
+                                            title="Next version"
+                                        >
+                                            →
+                                        </button>
+                                        
+                                        {/* Submit version button - only show if not on current version */}
+                                        {currentVersionIdx > 0 && (
+                                            <button
+                                                onClick={() => handleSubmitVersion(index, currentVersionIdx)}
+                                                disabled={regeneratingResponse !== null}
+                                                style={{
+                                                    background: '#10b981',
+                                                    border: 'none',
+                                                    color: 'white',
+                                                    cursor: regeneratingResponse !== null ? 'not-allowed' : 'pointer',
+                                                    padding: '3px 6px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '10px',
+                                                    fontWeight: '600',
+                                                    marginLeft: '4px'
+                                                }}
+                                                title="Submit this version and get new response"
+                                            >
+                                                {regeneratingResponse === (index + 1) ? '...' : '✓'}
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                                
+                                {/* Icons above the message on the left */}
+                                {!isEditing && (
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        gap: '8px', 
+                                        marginBottom: '4px',
+                                        marginRight: '8px',
+                                        alignSelf: 'flex-end'
+                                    }}>
+                                        {/* Copy icon */}
+                                        <button
+                                            className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
+                                            style={{
+                                                minWidth: 22,
+                                                minHeight: 22,
+                                                background: 'none',
+                                                border: 'none',
+                                                boxShadow: 'none',
+                                                color: '#9ca3af',
+                                                zIndex: 2
+                                            }}
+                                            onClick={() => copyToClipboard(getPairDisplayedContent(msg, index))}
+                                            title="Copy message"
+                                            aria-label="Copy message"
+                                        >
+                                            <FaCopy size={13} />
+                                        </button>
 
-                                            {/* Pencil icon, next to copy icon */}
-                                            {!isEditing && (
-                                                <button
-                                                    className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
-                                                    style={{
-                                                        position: 'absolute',
-                                                        left: '-52px',
-                                                        top: '12px',
-                                                        minWidth: 22,
-                                                        minHeight: 22,
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        boxShadow: 'none',
-                                                        color: '#9ca3af',
-                                                        zIndex: 2
-                                                    }}
-                                                    onClick={() => {
-                                                        setEditingMsgIdx(index);
-                                                        setEditingMsgValue(msg.content);
-                                                        setEditError('');
-                                                    }}
-                                                    title="Edit message"
-                                                    aria-label="Edit message"
-                                                >
-                                                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.8 2.8a1.13 1.13 0 0 1 1.6 1.6l-8.2 8.2-2.2.6.6-2.2 8.2-8.2z"></path></svg>
-                                                </button>
-                                            )}
-                                            
-                                            {/* Version control icon, next to pencil icon */}
-                                            {!isEditing && (hasVersions || assistantHasVersions) && (
-                                                <button
-                                                    className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
-                                                    style={{
-                                                        position: 'absolute',
-                                                        left: '-76px',
-                                                        top: '12px',
-                                                        minWidth: 22,
-                                                        minHeight: 22,
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        boxShadow: 'none',
-                                                        color: '#9ca3af',
-                                                        zIndex: 2
-                                                    }}
-                                                    onClick={() => {
-                                                        const currentVersionIdx = pairVersionIdx[index] || 0;
-                                                        const totalVersions = hasVersions ? msg.versions.length + 1 : 1;
-                                                        const nextVersion = currentVersionIdx + 1;
-                                                        
-                                                        if (nextVersion < totalVersions) {
-                                                            // Move to next version
-                                                            handlePairVersionToggle(index, 1);
-                                                        } else {
-                                                            // Cycle back to first version (current content)
-                                                            handlePairVersionToggle(index, -(currentVersionIdx));
-                                                        }
-                                                    }}
-                                                    title={`Switch version (${(pairVersionIdx[index] || 0) + 1}/${hasVersions ? msg.versions.length + 1 : 1})`}
-                                                    aria-label="Toggle message version"
-                                                >
-                                                    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                                        <rect x="4" y="4" width="8" height="8" rx="1"/>
-                                                        <rect x="2" y="2" width="8" height="8" rx="1"/>
-                                                    </svg>
-                                                </button>
-                                            )}
+                                        {/* Edit icon */}
+                                        <button
+                                            className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
+                                            style={{
+                                                minWidth: 22,
+                                                minHeight: 22,
+                                                background: 'none',
+                                                border: 'none',
+                                                boxShadow: 'none',
+                                                color: '#9ca3af',
+                                                zIndex: 2
+                                            }}
+                                            onClick={() => {
+                                                setEditingMsgIdx(index);
+                                                setEditingMsgValue(msg.content);
+                                                setEditError('');
+                                            }}
+                                            title="Edit message"
+                                            aria-label="Edit message"
+                                        >
+                                            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12.8 2.8a1.13 1.13 0 0 1 1.6 1.6l-8.2 8.2-2.2.6.6-2.2 8.2-8.2z"></path></svg>
+                                        </button>
+                                        
+                                        {/* Version control icon */}
+                                        {(hasVersions || assistantHasVersions) && (
+                                            <button
+                                                className="p-0 text-gray-400 focus:outline-none transition hover:text-gray-600"
+                                                style={{
+                                                    minWidth: 22,
+                                                    minHeight: 22,
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    boxShadow: 'none',
+                                                    color: '#9ca3af',
+                                                    zIndex: 2
+                                                }}
+                                                onClick={() => {
+                                                    const currentVersionIdx = pairVersionIdx[index] || 0;
+                                                    const totalVersions = hasVersions ? msg.versions.length + 1 : 1;
+                                                    const nextVersion = currentVersionIdx + 1;
+                                                    
+                                                    if (nextVersion < totalVersions) {
+                                                        // Move to next version
+                                                        handlePairVersionToggle(index, 1);
+                                                    } else {
+                                                        // Cycle back to first version (current content)
+                                                        handlePairVersionToggle(index, -(currentVersionIdx));
+                                                    }
+                                                }}
+                                                title={`Switch version (${(pairVersionIdx[index] || 0) + 1}/${hasVersions ? msg.versions.length + 1 : 1})`}
+                                                aria-label="Toggle message version"
+                                            >
+                                                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                                    <rect x="4" y="4" width="8" height="8" rx="1"/>
+                                                    <rect x="2" y="2" width="8" height="8" rx="1"/>
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                                
+                                <div className={style.userBubble} style={{ position: 'relative', minWidth: 80 }}>
+                                    {/* File icon at top left if message has file */}
+                                    {msg.hasFile || msg.file_id ? (
+                                        <div style={{ position: 'absolute', top: -16, left: -16, display: 'flex', alignItems: 'center', zIndex: 3 }}>
+                                            <FaFileAlt style={{ color: '#9ca3af', background: 'var(--navbar_background)', borderRadius: '50%', fontSize: 18 }} title="This message is about an uploaded file" />
+                                            {msg.fileName || msg.file_name || msg.filename ? (
+                                                <span style={{ marginLeft: 6, color: '#9ca3af', fontSize: 13, fontWeight: 500, background: 'var(--navbar_background)', padding: '0 6px', borderRadius: 6, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {msg.fileName || msg.file_name || msg.filename}
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
                                                 {/* Editing input */}
                                                 {isEditing ? (
                                                     <form

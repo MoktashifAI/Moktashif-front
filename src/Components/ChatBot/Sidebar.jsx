@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import style from './Sidebar.module.css';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiGlobe, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { LuPanelLeft, LuPanelRight } from 'react-icons/lu';
 
 const Sidebar = ({
