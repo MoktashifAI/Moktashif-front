@@ -85,6 +85,178 @@ export default function Chatbot() {
     const [regeneratingResponse, setRegeneratingResponse] = useState(null); // Track which message is being regenerated
     const [handlingNavbarMessage, setHandlingNavbarMessage] = useState(false); // Track if we're processing a navbar message
 
+    // Add duplicate prevention state
+    const [processedMessageIds, setProcessedMessageIds] = useState(new Set());
+    const [activeRequests, setActiveRequests] = useState(new Set());
+    const lastMessageRef = useRef(null);
+    const messageCountRef = useRef(0);
+
+    // Generate unique message ID
+    const generateMessageId = () => {
+        return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    };
+
+    // Enhanced duplicate detection function with web search and file handling
+    const isDuplicateMessage = (newMessage, existingMessages) => {
+        if (!newMessage || !newMessage.content) return false;
+        
+        // Enhanced content hash for better duplicate detection
+        const contentHash = newMessage.content.length > 200 
+            ? newMessage.content.substring(0, 100) + newMessage.content.substring(newMessage.content.length - 100)
+            : newMessage.content;
+        const messageKey = `${newMessage.role}_${contentHash}_${newMessage.file_id || 'no_file'}`;
+        
+        if (processedMessageIds.has(messageKey)) {
+            console.log('🚫 Duplicate message detected by enhanced content hash:', messageKey);
+            return true;
+        }
+        
+        // More comprehensive duplicate check for recent messages (last 5 messages)
+        const recentMessages = existingMessages.slice(-5);
+        const isDuplicate = recentMessages.some(msg => {
+            // Exact content match
+            if (msg.role === newMessage.role && msg.content === newMessage.content) {
+                // For file-related messages, also check file_id
+                if (newMessage.file_id || msg.file_id) {
+                    return msg.file_id === newMessage.file_id;
+                }
+                return true;
+            }
+            
+            // For long messages (like vulnerability reports), check if content is substantially similar
+            if (msg.role === newMessage.role && 
+                msg.content.length > 500 && 
+                newMessage.content.length > 500) {
+                const similarity = calculateContentSimilarity(msg.content, newMessage.content);
+                if (similarity > 0.95) {
+                    console.log('🚫 Duplicate detected by content similarity:', similarity);
+                    return true;
+                }
+            }
+            
+            return false;
+        });
+        
+        if (isDuplicate) {
+            console.log('🚫 Duplicate message detected by comprehensive comparison');
+            return true;
+        }
+        
+        // Check if this is the same as the last message we just added
+        if (lastMessageRef.current && 
+            lastMessageRef.current.role === newMessage.role &&
+            lastMessageRef.current.content === newMessage.content) {
+            console.log('🚫 Duplicate message detected by last message reference');
+            return true;
+        }
+        
+        return false;
+    };
+
+    // Helper function to calculate content similarity for long messages
+    const calculateContentSimilarity = (content1, content2) => {
+        if (content1 === content2) return 1.0;
+        
+        // Simple similarity check based on common words
+        const words1 = content1.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        const words2 = content2.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        
+        if (words1.length === 0 || words2.length === 0) return 0;
+        
+        const commonWords = words1.filter(word => words2.includes(word));
+        const similarity = (commonWords.length * 2) / (words1.length + words2.length);
+        
+        return similarity;
+    };
+
+    // Enhanced message addition function with duplicate prevention
+    const addMessageSafely = (newMessage, updateFunction = null) => {
+        const messageId = newMessage.id || generateMessageId();
+        const messageWithId = { ...newMessage, id: messageId };
+        
+        setMessages(prevMessages => {
+            // Check for duplicates
+            if (isDuplicateMessage(messageWithId, prevMessages)) {
+                console.log('🚫 Preventing duplicate message addition');
+                return prevMessages;
+            }
+            
+            // Additional check: if this is an assistant message and the last message is also assistant with same content
+            if (messageWithId.role === 'assistant' && prevMessages.length > 0) {
+                const lastMsg = prevMessages[prevMessages.length - 1];
+                if (lastMsg.role === 'assistant' && lastMsg.content === messageWithId.content) {
+                    console.log('🚫 Preventing duplicate assistant message');
+                    return prevMessages;
+                }
+            }
+            
+            // Track processed message
+            const messageKey = `${messageWithId.role}_${messageWithId.content.substring(0, 100)}`;
+            setProcessedMessageIds(prev => {
+                const newSet = new Set(prev);
+                newSet.add(messageKey);
+                // Keep only last 10 processed messages to prevent memory leak
+                if (newSet.size > 10) {
+                    const firstKey = newSet.values().next().value;
+                    newSet.delete(firstKey);
+                }
+                return newSet;
+            });
+            
+            // Update last message reference
+            lastMessageRef.current = messageWithId;
+            messageCountRef.current = prevMessages.length + 1;
+            
+            console.log('✅ Adding new message safely:', messageWithId.role, messageWithId.content.substring(0, 50) + '...');
+            
+            if (updateFunction) {
+                return updateFunction([...prevMessages, messageWithId]);
+            }
+            return [...prevMessages, messageWithId];
+        });
+    };
+
+    // Enhanced request deduplication function
+    const createRequestKey = (endpoint, payload) => {
+        // Create a more specific key that includes important parameters
+        const keyData = {
+            endpoint,
+            message: payload.message,
+            file_id: payload.file_id,
+            force_web_search: payload.force_web_search,
+            conversationId: conversationId,
+            timestamp: Math.floor(Date.now() / 1000) // Group requests within same second
+        };
+        return JSON.stringify(keyData);
+    };
+
+    const isRequestActive = (requestKey) => {
+        return activeRequests.has(requestKey);
+    };
+
+    const addActiveRequest = (requestKey) => {
+        setActiveRequests(prev => new Set([...prev, requestKey]));
+    };
+
+    const removeActiveRequest = (requestKey) => {
+        setActiveRequests(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(requestKey);
+            return newSet;
+        });
+    };
+
+    // Add request timeout to prevent stuck requests
+    const addActiveRequestWithTimeout = (requestKey, timeoutMs = 30000) => {
+        addActiveRequest(requestKey);
+        
+        // Auto-remove request after timeout
+        setTimeout(() => {
+            removeActiveRequest(requestKey);
+            console.log('🕐 Request timeout, removing from active requests:', requestKey);
+        }, timeoutMs);
+    };
+
     // Clean up ?message=... from the URL on load
     useEffect(() => {
         if (location.pathname === '/chatbot' && location.search.startsWith('?message=')) {
@@ -242,31 +414,54 @@ export default function Chatbot() {
                 const conv = response.data.conversation;
                 const serverMessages = conv.messages || [];
                 
-                // Only update messages if server has more messages than local state
-                // This prevents overwriting local state when we've already added the response
+                // Enhanced message synchronization with duplicate prevention
                 setMessages(prevMessages => {
-                    // If we have no local messages, use server messages
+                    // If we have no local messages, use server messages with IDs
                     if (prevMessages.length === 0) {
                         console.log('📝 No local messages, using server messages');
-                        return serverMessages;
+                        const messagesWithIds = serverMessages.map(msg => ({
+                            ...msg,
+                            id: msg.id || generateMessageId()
+                        }));
+                        return messagesWithIds;
                     }
                     
-                    // If server has significantly more messages, update
+                    // If server has significantly more messages, update carefully
                     if (serverMessages.length > prevMessages.length + 1) {
                         console.log(`📝 Server has significantly more messages (${serverMessages.length} vs ${prevMessages.length}), updating`);
-                        return serverMessages;
+                        const messagesWithIds = serverMessages.map(msg => ({
+                            ...msg,
+                            id: msg.id || generateMessageId()
+                        }));
+                        return messagesWithIds;
                     }
                     
-                    // If server has exactly one more message, check if it's different from our last message
+                    // If server has exactly one more message, check if it's different and not a duplicate
                     if (serverMessages.length === prevMessages.length + 1) {
                         const lastServerMsg = serverMessages[serverMessages.length - 1];
                         const lastLocalMsg = prevMessages[prevMessages.length - 1];
                         
-                        // Only update if the new server message is different from what we expect
+                        // Only update if the new server message is different and not a duplicate
                         if (lastServerMsg && lastLocalMsg && 
                             lastServerMsg.role === 'assistant' && lastLocalMsg.role === 'user') {
-                            console.log('📝 Server has new assistant response, updating');
-                            return serverMessages;
+                            
+                            // Check if this assistant message is already in our local state
+                            const isDuplicate = prevMessages.some(msg => 
+                                msg.role === 'assistant' && 
+                                msg.content === lastServerMsg.content
+                            );
+                            
+                            if (!isDuplicate) {
+                                console.log('📝 Server has new assistant response, updating');
+                                const messagesWithIds = serverMessages.map(msg => ({
+                                    ...msg,
+                                    id: msg.id || generateMessageId()
+                                }));
+                                return messagesWithIds;
+                            } else {
+                                console.log('📝 Server message is duplicate, keeping local state');
+                                return prevMessages;
+                            }
                         }
                     }
                     
@@ -281,7 +476,11 @@ export default function Chatbot() {
                         
                         if (hasContentDifferences) {
                             console.log('📝 Message content differs, updating from server');
-                            return serverMessages;
+                            const messagesWithIds = serverMessages.map(msg => ({
+                                ...msg,
+                                id: msg.id || generateMessageId()
+                            }));
+                            return messagesWithIds;
                         }
                     }
                     
@@ -514,12 +713,19 @@ export default function Chatbot() {
         e.preventDefault();
         if (!message.trim() || !conversationId) return;
         
+        // Prevent duplicate submissions
+        if (isLoading) {
+            console.log('🚫 Preventing duplicate submission - already loading');
+            return;
+        }
+        
         // Reset auto search indicator
         setAutoSearchActive(false);
         setReplyTo(null);
 
-        // Build the user message
+        // Build the user message with unique ID
         const userMessage = {
+            id: generateMessageId(),
             role: 'user',
             content: message,
         };
@@ -540,32 +746,43 @@ export default function Chatbot() {
             userMessage.file_id = fileId;
         }
         
-        // Immediately update local state with file information
-        const newMessageIndex = messages.length;
-        setMessages(prevMessages => [...prevMessages, userMessage]);
+        // Create request key for deduplication
+        const endpoint = webSearchEnabled 
+            ? `/api/conversations/${conversationId}/web_search` 
+            : `/api/chat/${conversationId}`;
+        
+        const payloadData = {
+            message,
+            force_web_search: false,
+            replyTo: replyTo?.msg ? { 
+                index: replyTo.index, 
+                content: replyTo.msg.content,
+                isCurrentVersion: true
+            } : undefined,
+            file_id: fileId
+        };
+        
+        const requestKey = createRequestKey(endpoint, payloadData);
+        
+        // Check if this exact request is already active
+        if (isRequestActive(requestKey)) {
+            console.log('🚫 Preventing duplicate request - same request already active');
+            return;
+        }
+        
+        // Add user message safely (with duplicate prevention)
+        addMessageSafely(userMessage);
+        
         setMessage('');
         setIsLoading(true);
         setStreamingResponse('');
         
+        // Track this request as active with timeout
+        addActiveRequestWithTimeout(requestKey, 30000);
+        
         try {
             // Send the message to the server
             const token = localStorage.getItem('userToken');
-            
-            // Determine which endpoint to use based on webSearchEnabled
-            const endpoint = webSearchEnabled 
-                ? `/api/conversations/${conversationId}/web_search` 
-                : `/api/chat/${conversationId}`;
-            
-            const payloadData = {
-                message,
-                force_web_search: false,
-                replyTo: replyTo?.msg ? { 
-                    index: replyTo.index, 
-                    content: replyTo.msg.content,
-                    isCurrentVersion: true
-                } : undefined,
-                file_id: fileId // Send file_id to the server
-            };
 
             console.log('🚀 Sending message with payload:', payloadData);
             console.log('🎯 Endpoint:', endpoint);
@@ -605,11 +822,15 @@ export default function Chatbot() {
                     return; // Request was aborted
                 }
                 
-                // Add the streamed response to messages immediately to prevent blinking
-                if (streamResult && streamResult.content) {
+                // Add the streamed response to messages safely
+                if (streamResult && streamResult.content && streamResult.content.trim()) {
                     const assistantMessage = {
+                        id: generateMessageId(),
                         role: 'assistant',
-                        content: streamResult.content
+                        content: streamResult.content.trim(),
+                        isStreamedResponse: true, // Flag for streamed responses
+                        timestamp: Date.now(), // Add timestamp for better deduplication
+                        file_id: fileId // Include file_id if this was a file-related query
                     };
                     
                     // Add reply context if this was a reply
@@ -620,16 +841,8 @@ export default function Chatbot() {
                         };
                     }
                     
-                    setMessages(prevMessages => {
-                        // Check if this message already exists to prevent duplicates
-                        const lastMessage = prevMessages[prevMessages.length - 1];
-                        if (lastMessage && lastMessage.role === 'assistant' && 
-                            lastMessage.content === streamResult.content) {
-                            console.log('🚫 Duplicate assistant message detected, skipping');
-                            return prevMessages;
-                        }
-                        return [...prevMessages, assistantMessage];
-                    });
+                    // Use safe message addition with duplicate prevention
+                    addMessageSafely(assistantMessage);
                 }
                 
                 // Clear streaming response after adding to messages
@@ -655,11 +868,14 @@ export default function Chatbot() {
                     // Set auto search indicator
                     setAutoSearchActive(true);
                     
-                    // Add the complete response to messages immediately
-                    if (fullContent) {
+                    // Add the complete response to messages safely with web search flag
+                    if (fullContent && fullContent.trim()) {
                         const assistantMessage = {
+                            id: generateMessageId(),
                             role: 'assistant',
-                            content: fullContent
+                            content: fullContent.trim(),
+                            isWebSearchResponse: true, // Flag for web search responses
+                            timestamp: Date.now() // Add timestamp for better deduplication
                         };
                         
                         // Add reply context if this was a reply
@@ -670,16 +886,8 @@ export default function Chatbot() {
                             };
                         }
                         
-                        setMessages(prevMessages => {
-                            // Check if this message already exists to prevent duplicates
-                            const lastMessage = prevMessages[prevMessages.length - 1];
-                            if (lastMessage && lastMessage.role === 'assistant' && 
-                                lastMessage.content === fullContent) {
-                                console.log('🚫 Duplicate assistant message detected, skipping');
-                                return prevMessages;
-                            }
-                            return [...prevMessages, assistantMessage];
-                        });
+                        // Use safe message addition with duplicate prevention
+                        addMessageSafely(assistantMessage);
                     }
                     
                     // Clear loading state
@@ -717,10 +925,14 @@ export default function Chatbot() {
                         await new Promise(resolve => setTimeout(resolve, 50));
                     }
                     
-                    // Add the response to messages immediately
+                    // Add the response to messages safely
                     const assistantMessage = {
+                        id: generateMessageId(),
                         role: 'assistant',
-                        content: content
+                        content: content.trim(),
+                        isJSONResponse: true, // Flag for JSON responses
+                        timestamp: Date.now(), // Add timestamp for better deduplication
+                        file_id: fileId // Include file_id if this was a file-related query
                     };
                     
                     // Add reply context if this was a reply
@@ -731,31 +943,16 @@ export default function Chatbot() {
                         };
                     }
                     
-                    setMessages(prevMessages => {
-                        // Check if this message already exists to prevent duplicates
-                        const lastMessage = prevMessages[prevMessages.length - 1];
-                        if (lastMessage && lastMessage.role === 'assistant' && 
-                            lastMessage.content === content) {
-                            console.log('🚫 Duplicate assistant message detected, skipping');
-                            return prevMessages;
-                        }
-                        return [...prevMessages, assistantMessage];
-                    });
+                    // Use safe message addition with duplicate prevention
+                    addMessageSafely(assistantMessage);
                     setStreamingResponse(''); // Clear after adding to messages
                     // Clear loading state since non-streaming response is complete
                     setIsLoading(false);
                 }
             }
             
-            // Delay fetching conversation to avoid conflicts with local state
-            setTimeout(async () => {
-                try {
-                    await fetchConversation();
-                    console.log('🔄 Conversation synced with server');
-                } catch (error) {
-                    console.warn('⚠️ Failed to sync conversation:', error);
-                }
-            }, 2000);
+            // Remove the delayed fetchConversation call that causes duplicates
+            // The local state is already updated correctly, no need to sync with server
             
             // Reset web search mode after sending
             setWebSearchEnabled(false);
@@ -792,6 +989,9 @@ export default function Chatbot() {
                 setError('Failed to send message. Please try again.');
             }
         } finally {
+            // Remove this request from active requests
+            removeActiveRequest(requestKey);
+            
             // Only clear loading if there was an error or abort - successful responses clear it themselves
             // setIsLoading(false); // Moved to individual response handlers
             // Don't clear streamingResponse here as it might already be cleared
@@ -1431,13 +1631,17 @@ export default function Chatbot() {
                             const existingMessages = convResponse.data.conversation.messages || [];
                             setCurrentConversation(convResponse.data.conversation);
                             
-                            // Add the user message to existing messages
+                            // Add the user message to existing messages safely
                             const userMessage = {
+                                id: generateMessageId(),
                                 role: 'user',
                                 content: incomingMessage
                             };
                             console.log('📝 Adding navbar message to existing conversation with', existingMessages.length, 'messages');
-                            setMessages([...existingMessages, userMessage]);
+                            
+                            // Use safe message addition
+                            setMessages(existingMessages);
+                            addMessageSafely(userMessage);
                         }
                     } else {
                         // Create a new conversation for the navbar message
@@ -1450,13 +1654,14 @@ export default function Chatbot() {
                             setConversationId(convId);
                             setCurrentConversation(createResp.data.conversation);
                             
-                            // Add the user message to the new empty conversation
+                            // Add the user message to the new empty conversation safely
                             const userMessage = {
+                                id: generateMessageId(),
                                 role: 'user',
                                 content: incomingMessage
                             };
                             console.log('📝 Adding navbar message to new conversation');
-                            setMessages([userMessage]);
+                            addMessageSafely(userMessage);
                         } else {
                             setError('Failed to create new conversation.');
                             setIsLoading(false);
@@ -1513,23 +1718,19 @@ export default function Chatbot() {
                                 return; // Request was aborted
                             }
                             
-                            // Add the streamed response to messages immediately to prevent blinking
-                            if (streamResult && streamResult.content) {
+                            // Add the streamed response to messages safely
+                            if (streamResult && streamResult.content && streamResult.content.trim()) {
                                 const assistantMessage = {
+                                    id: generateMessageId(),
                                     role: 'assistant',
-                                    content: streamResult.content
+                                    content: streamResult.content.trim(),
+                                    isNavbarResponse: true, // Flag for navbar responses
+                                    isStreamedResponse: true,
+                                    timestamp: Date.now()
                                 };
                                 
-                                setMessages(prevMessages => {
-                                    // Check if this message already exists to prevent duplicates
-                                    const lastMessage = prevMessages[prevMessages.length - 1];
-                                    if (lastMessage && lastMessage.role === 'assistant' && 
-                                        lastMessage.content === streamResult.content) {
-                                        console.log('🚫 Duplicate assistant message detected, skipping');
-                                        return prevMessages;
-                                    }
-                                    return [...prevMessages, assistantMessage];
-                                });
+                                // Use safe message addition with duplicate prevention
+                                addMessageSafely(assistantMessage);
                             }
                             
                             // Clear loading and streaming states
@@ -1555,23 +1756,19 @@ export default function Chatbot() {
                                 // Set auto search indicator
                                 setAutoSearchActive(true);
                                 
-                                // Add the complete response to messages immediately
-                                if (fullContent) {
+                                // Add the complete response to messages safely
+                                if (fullContent && fullContent.trim()) {
                                     const assistantMessage = {
+                                        id: generateMessageId(),
                                         role: 'assistant',
-                                        content: fullContent
+                                        content: fullContent.trim(),
+                                        isNavbarResponse: true, // Flag for navbar responses
+                                        isWebSearchResponse: true,
+                                        timestamp: Date.now()
                                     };
                                     
-                                    setMessages(prevMessages => {
-                                        // Check if this message already exists to prevent duplicates
-                                        const lastMessage = prevMessages[prevMessages.length - 1];
-                                        if (lastMessage && lastMessage.role === 'assistant' && 
-                                            lastMessage.content === fullContent) {
-                                            console.log('🚫 Duplicate assistant message detected, skipping');
-                                            return prevMessages;
-                                        }
-                                        return [...prevMessages, assistantMessage];
-                                    });
+                                    // Use safe message addition with duplicate prevention
+                                    addMessageSafely(assistantMessage);
                                 }
                                 
                                 // Clear loading and streaming states
@@ -1611,22 +1808,18 @@ export default function Chatbot() {
                                     await new Promise(resolve => setTimeout(resolve, 50));
                                 }
                                 
-                                // Add the response to messages immediately
+                                // Add the response to messages safely
                                 const assistantMessage = {
+                                    id: generateMessageId(),
                                     role: 'assistant',
-                                    content: content
+                                    content: content.trim(),
+                                    isNavbarResponse: true, // Flag for navbar responses
+                                    isJSONResponse: true,
+                                    timestamp: Date.now()
                                 };
                                 
-                                setMessages(prevMessages => {
-                                    // Check if this message already exists to prevent duplicates
-                                    const lastMessage = prevMessages[prevMessages.length - 1];
-                                    if (lastMessage && lastMessage.role === 'assistant' && 
-                                        lastMessage.content === content) {
-                                        console.log('🚫 Duplicate assistant message detected, skipping');
-                                        return prevMessages;
-                                    }
-                                    return [...prevMessages, assistantMessage];
-                                });
+                                // Use safe message addition with duplicate prevention
+                                addMessageSafely(assistantMessage);
                                 // Clear loading and streaming states
                                 console.log('🔧 Navbar non-streaming complete - clearing loading state');
                                 setIsLoading(false);
