@@ -9,7 +9,7 @@ import autoTable from "jspdf-autotable";
 import { Helmet } from "react-helmet";
 
 export default function Results() {
-  const { vulnsBackendData, setVulnsBackendData, scanDate, headers, setscanDate } = useContext(GlobalContext);
+  const { vulnsBackendData, setVulnsBackendData, scanDate, setscanDate } = useContext(GlobalContext);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     critical: 0,
@@ -216,11 +216,11 @@ export default function Results() {
         img.onerror = () => {
           console.error('Error loading watermark image');
           // Fallback to text watermark if image fails to load
-          doc.setFontSize(18);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(92, 135, 255); // #5c87ff
-          doc.text('Moktashif', 105, 285, { align: 'center' });
-          doc.setTextColor(0, 0, 0); // Reset color
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(92, 135, 255); // #5c87ff
+    doc.text('Moktashif', 105, 285, { align: 'center' });
+    doc.setTextColor(0, 0, 0); // Reset color
           resolve();
         };
         

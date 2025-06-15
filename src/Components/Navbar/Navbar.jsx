@@ -3,11 +3,9 @@ import style from "./Navbar.module.css";
 import { Link } from "react-router-dom";
 import "../../assets/GlobalStyle.css";
 import ThemeMode from "../ThemeMode/ThemeMode";
-import { useContext, useState, useRef, useEffect, useCallback } from "react";
+import { useContext, useState, useRef, useEffect } from "react";
 import { UserContext } from "../../Context/UserContext.jsx";
 import { useNavigate } from "react-router-dom";
-import axios from 'axios';
-import { GlobalContext } from "../../Context/GlobalContext.jsx";
 import { useProfile } from '../../Context/ProfileContext';
 import gsap from "gsap";
 
@@ -19,43 +17,14 @@ function classNames(...classes) {
 
 export default function Navbar() {
   const { userToken, setUserToken } = useContext(UserContext);
-  const { headers } = useContext(GlobalContext);
   const navigate = useNavigate();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef(null);
   const [chatInput, setChatInput] = useState("");
   const { profileData } = useProfile();
   const profilePhoto = profileData?.userImg?.secure_url || DEFAULT_AVATAR;
-  const [loading, setLoading] = useState(false);
   const [showResultsButton, setShowResultsButton] = useState(false);
   const logoIconRef = useRef(null);
-
-  const getUserProfile = useCallback(async () => {
-    if (!userToken || !headers) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const response = await axios.get(`http://localhost:3000/user/getProfile`, { 
-        headers,
-        validateStatus: (status) => status < 500
-      });
-
-      if (response.data?.success) {
-        // This block is now empty as the profile data is handled by useProfile
-      }
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [headers, userToken]);
-
-  // Fetch profile when userToken or headers change
-  useEffect(() => {
-    getUserProfile();
-  }, [getUserProfile]);
 
   useEffect(() => {
     // Check localStorage for results
@@ -87,7 +56,7 @@ export default function Navbar() {
 
   const handleChatInputKeyDown = (e) => {
     if (e.key === "Enter" && chatInput.trim() !== "") {
-      navigate(`/chatbot?message=${encodeURIComponent(chatInput)}`);
+      navigate(`/chatbot?message=${encodeURIComponent(chatInput.trim())}`);
       setChatInput("");
     }
   };
@@ -204,7 +173,7 @@ export default function Navbar() {
                 <img
                   alt="Profile"
                   src={profilePhoto}
-                  className={`size-9 rounded-full ${loading ? style.loadingImage : ''}`}
+                  className={`size-9 rounded-full`}
                 />
                 </Link>
               </button>

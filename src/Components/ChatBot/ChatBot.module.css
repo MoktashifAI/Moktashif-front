@@ -248,9 +248,110 @@
     width: 100%;
     min-width: 180px;
 }
+
+.replyChip {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff;
+    border-radius: 0.8rem;
+    padding: 0.5rem 0.75rem;
+    margin: 0 0 0.4rem auto;
+    font-size: 0.85rem;
+    box-shadow: 0 3px 8px rgba(59, 130, 246, 0.25);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    transition: all 0.3s ease;
+    min-height: auto;
+    gap: 0.2rem;
+    position: relative;
+    max-width: 350px;
+    width: fit-content;
+    min-width: 150px;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    animation: slideInUp 0.3s ease-out;
+    align-self: flex-end;
+    margin-right: 1rem;
+}
+
+.replyChip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    background: linear-gradient(135deg, #2563eb, #1e40af);
+}
+
+.replyChip .replyLabel {
+    font-size: 0.7rem;
+    font-weight: 600;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 0.1rem;
+}
+
+.replyChip .replyContent {
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.3;
+    color: #fff;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.replyChip .replyClose {
+    position: absolute;
+    top: 0.3rem;
+    right: 0.5rem;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: #fff;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.replyChip .replyClose:hover {
+    background: rgba(239, 68, 68, 0.8);
+    transform: scale(1.1);
+}
+
+@keyframes slideInUp {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 @media (max-width: 600px) {
     .fileChip, .fileChipSuccess {
         max-width: 98vw;
+    }
+    .replyChip {
+        max-width: 90vw;
+        min-width: 120px;
+        padding: 0.4rem 0.6rem;
+        margin: 0 0 0.3rem auto;
+        margin-right: 0.5rem;
+        font-size: 0.8rem;
+    }
+    .replyChip .replyLabel {
+        font-size: 0.65rem;
+    }
+    .replyChip .replyContent {
+        font-size: 0.75rem;
     }
 }
 .uploadingStatus {
@@ -636,4 +737,15 @@
 
 [data-theme="dark"] .errorMessage {
     background-color: rgba(239, 68, 68, 0.2);
+}
+
+[data-theme="dark"] .replyChip {
+    background: linear-gradient(135deg, #1e40af, #1e3a8a);
+    border: 1.5px solid rgba(59, 130, 246, 0.6);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="dark"] .replyChip:hover {
+    background: linear-gradient(135deg, #1d4ed8, #1e3a8a);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
 }

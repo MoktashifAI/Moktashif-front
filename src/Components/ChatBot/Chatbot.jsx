@@ -11,10 +11,17 @@ import { FiArrowUp, FiGlobe, FiFile } from 'react-icons/fi';
 import CyberBackgroundChatBot from './CyberBackgroundChatBot';
 import FileSelector from './FileSelector';
 
-// Configure axios with base URL - using /api prefix for all backend calls
-const API_BASE_URL = '/api'; // All API calls will be proxied through Vite
+// Configure axios with base URL - using direct localhost calls like scanner
+const API_BASE_URL = '/api'; // Use relative path instead of hardcoded localhost:3000
 const api = axios.create({
-    baseURL: API_BASE_URL
+    baseURL: API_BASE_URL,
+    headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Origin, Content-Type, Accept, Authorization, X-Request-With'
+    },
+    withCredentials: false
 });
 
 api.interceptors.request.use(config => {
@@ -25,7 +32,6 @@ api.interceptors.request.use(config => {
     return config;
 });
 
-// Add response interceptor for better error handling
 api.interceptors.response.use(
     response => response,
     error => {
@@ -267,7 +273,7 @@ export default function Chatbot() {
     // Define functions that need to be used by other functions
     const handleNewChat = async () => {
         try {
-            const response = await api.post('/conversations/new', {});
+            const response = await api.post('/conversations/new', { title: 'New Conversation' });
             const newConversation = response.data.conversation;
             setConversations(prev => sortConversations([newConversation, ...prev]));
             setConversationId(newConversation.id);
@@ -606,12 +612,14 @@ export default function Chatbot() {
         
         if (!response || !response.body) {
             console.error('❌ No response body available');
+            setIsLoading(false); // Make sure to clear loading state
             throw new Error('No response body available');
         }
 
         // Check if response is ok
         if (!response.ok) {
             console.error('❌ HTTP error:', response.status);
+            setIsLoading(false); // Make sure to clear loading state
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -748,8 +756,8 @@ export default function Chatbot() {
         
         // Create request key for deduplication
         const endpoint = webSearchEnabled 
-            ? `/api/conversations/${conversationId}/web_search` 
-            : `/api/chat/${conversationId}`;
+            ? `/api/conversations/${conversationId}/web_search`
+                : `/api/chat/${conversationId}`;
         
         const payloadData = {
             message,
@@ -796,8 +804,11 @@ export default function Chatbot() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'text/plain, application/json, text/event-stream, application/octet-stream'
                 },
+                credentials: 'same-origin',
+                mode: 'cors',
                 body: JSON.stringify(payloadData),
                 signal: abortController.signal
             });
@@ -1313,8 +1324,11 @@ export default function Chatbot() {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
                 },
+                credentials: 'same-origin',
+                mode: 'cors',
                 body: JSON.stringify({
                     content: versionContent,
                     original_content: msg.content
@@ -1601,6 +1615,13 @@ export default function Chatbot() {
                 setIsLoading(true);
                 setError("");
                 let convId = null;
+                
+                // Set a timeout to clear loading state if request takes too long
+                const loadingTimeout = setTimeout(() => {
+                    console.log('⏱️ Loading timeout reached, clearing loading state');
+                    setIsLoading(false);
+                    setError('Request timed out. Please try again.');
+                }, 30000); // 30 second timeout
                 try {
                     // Always fetch the latest conversations from backend
                     const response = await api.get('/conversations');
@@ -1692,8 +1713,11 @@ export default function Chatbot() {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
+                                'Authorization': `Bearer ${token}`,
+                                'Accept': 'text/plain, application/json, text/event-stream, application/octet-stream'
                             },
+                            credentials: 'same-origin',
+                            mode: 'cors',
                             body: JSON.stringify(payload),
                             signal: abortController.signal
                         });
@@ -1711,32 +1735,38 @@ export default function Chatbot() {
                         if (!isWebSearchResponse && (contentType.includes('text/plain') || contentType.includes('text/event-stream') || contentType.includes('application/octet-stream'))) {
                             // Use the enhanced streaming handler for non-web-search responses
                             console.log('🔄 Using streaming for navbar message...');
-                            const streamResult = await handleStreamingResponse(response, abortController);
-                            
-                            // Handle abort case
-                            if (streamResult === null) {
-                                return; // Request was aborted
-                            }
-                            
-                            // Add the streamed response to messages safely
-                            if (streamResult && streamResult.content && streamResult.content.trim()) {
-                                const assistantMessage = {
-                                    id: generateMessageId(),
-                                    role: 'assistant',
-                                    content: streamResult.content.trim(),
-                                    isNavbarResponse: true, // Flag for navbar responses
-                                    isStreamedResponse: true,
-                                    timestamp: Date.now()
-                                };
+                            try {
+                                const streamResult = await handleStreamingResponse(response, abortController);
                                 
-                                // Use safe message addition with duplicate prevention
-                                addMessageSafely(assistantMessage);
+                                // Handle abort case
+                                if (streamResult === null) {
+                                    setIsLoading(false); // Make sure to clear loading state even if aborted
+                                    return; // Request was aborted
+                                }
+                                
+                                // Add the streamed response to messages safely
+                                if (streamResult && streamResult.content && streamResult.content.trim()) {
+                                    const assistantMessage = {
+                                        id: generateMessageId(),
+                                        role: 'assistant',
+                                        content: streamResult.content.trim(),
+                                        isNavbarResponse: true, // Flag for navbar responses
+                                        isStreamedResponse: true,
+                                        timestamp: Date.now()
+                                    };
+                                    
+                                    // Use safe message addition with duplicate prevention
+                                    addMessageSafely(assistantMessage);
+                                }
+                            } catch (streamError) {
+                                console.error('Error in navbar streaming:', streamError);
+                                setError('Failed to process response. Please try again.');
+                            } finally {
+                                // Always clear loading and streaming states
+                                console.log('🔧 Navbar streaming complete - clearing loading state');
+                                setIsLoading(false);
+                                setStreamingResponse('');
                             }
-                            
-                            // Clear loading and streaming states
-                            console.log('🔧 Navbar streaming complete - clearing loading state');
-                            setIsLoading(false);
-                            setStreamingResponse('');
                             
                         } else if (isWebSearchResponse && contentType.includes('text/plain')) {
                             // Handle navbar web search response as non-streaming (read all at once)
@@ -1791,39 +1821,50 @@ export default function Chatbot() {
                         } else {
                             // Handle non-streaming response (JSON)
                             console.log('📄 Non-streaming response detected for navbar message');
-                            const responseData = await response.json();
-                            console.log('📋 Response data:', responseData);
-                            
-                            // If we have message content, show it as if it was streamed
-                            if (responseData.message || responseData.content) {
-                                const content = responseData.message || responseData.content;
-                                console.log('💬 Got content:', content);
+                            try {
+                                const responseData = await response.json();
+                                console.log('📋 Response data:', responseData);
                                 
-                                // Simulate streaming effect for non-streaming responses
-                                setStreamingResponse('');
-                                const words = content.split(' ');
-                                for (let i = 0; i < words.length; i++) {
-                                    const partial = words.slice(0, i + 1).join(' ');
-                                    setStreamingResponse(partial);
-                                    await new Promise(resolve => setTimeout(resolve, 50));
+                                // If we have message content, show it as if it was streamed
+                                if (responseData.message || responseData.content) {
+                                    const content = responseData.message || responseData.content;
+                                    console.log('💬 Got content:', content);
+                                    
+                                    // Simulate streaming effect for non-streaming responses
+                                    setStreamingResponse('');
+                                    const words = content.split(' ');
+                                    for (let i = 0; i < words.length; i++) {
+                                        const partial = words.slice(0, i + 1).join(' ');
+                                        setStreamingResponse(partial);
+                                        await new Promise(resolve => setTimeout(resolve, 50));
+                                    }
+                                    
+                                    // Add the response to messages safely
+                                    const assistantMessage = {
+                                        id: generateMessageId(),
+                                        role: 'assistant',
+                                        content: content.trim(),
+                                        isNavbarResponse: true, // Flag for navbar responses
+                                        isJSONResponse: true,
+                                        timestamp: Date.now()
+                                    };
+                                    
+                                    // Use safe message addition with duplicate prevention
+                                    addMessageSafely(assistantMessage);
+                                    // Clear loading and streaming states
+                                    console.log('🔧 Navbar non-streaming complete - clearing loading state');
+                                    setIsLoading(false);
+                                    setStreamingResponse(''); // Clear after adding to messages
+                                } else {
+                                    // No content found in response
+                                    console.error('No content found in response data:', responseData);
+                                    setError('No response content received. Please try again.');
+                                    setIsLoading(false);
                                 }
-                                
-                                // Add the response to messages safely
-                                const assistantMessage = {
-                                    id: generateMessageId(),
-                                    role: 'assistant',
-                                    content: content.trim(),
-                                    isNavbarResponse: true, // Flag for navbar responses
-                                    isJSONResponse: true,
-                                    timestamp: Date.now()
-                                };
-                                
-                                // Use safe message addition with duplicate prevention
-                                addMessageSafely(assistantMessage);
-                                // Clear loading and streaming states
-                                console.log('🔧 Navbar non-streaming complete - clearing loading state');
+                            } catch (jsonError) {
+                                console.error('Error parsing JSON response:', jsonError);
+                                setError('Failed to parse response. Please try again.');
                                 setIsLoading(false);
-                                setStreamingResponse(''); // Clear after adding to messages
                             }
                         }
                         
@@ -1854,6 +1895,7 @@ export default function Chatbot() {
                         } else {
                             // For other errors, just show a generic message without logging out
                             setError('Failed to send message. Please try again.');
+                            console.log('Detailed error:', apiError);
                         }
                     }
 
@@ -1874,6 +1916,12 @@ export default function Chatbot() {
                 } finally {
                     // Only clear navbar flag, not loading state (handled in success/error cases)
                     setHandlingNavbarMessage(false); // Reset the flag
+                    
+                    // Clear the loading timeout
+                    clearTimeout(loadingTimeout);
+                    
+                    // Ensure loading state is cleared in all cases
+                    setIsLoading(false);
                 }
                 // Clear the URL parameter
                 navigate(location.pathname, { replace: true });
