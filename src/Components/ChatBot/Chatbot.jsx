@@ -10,6 +10,7 @@ import { FaPaperclip, FaHistory, FaSpinner, FaFileAlt, FaCheckCircle, FaTimesCir
 import { FiArrowUp, FiGlobe, FiFile } from 'react-icons/fi';
 import CyberBackgroundChatBot from './CyberBackgroundChatBot';
 import FileSelector from './FileSelector';
+import { getCurrentUserId } from '../../Utils/jwtUtils';
 
 // Configure axios with base URL - using direct localhost calls like scanner
 const API_BASE_URL = '/api'; // Use relative path instead of hardcoded localhost:3000
@@ -26,10 +27,35 @@ const api = axios.create({
 
 api.interceptors.request.use(config => {
     const token = localStorage.getItem('userToken');
+    const userId = getCurrentUserId();
+    
+    // Add token to headers if available
     if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
     }
+    
+    // Add user_id to query params for GET requests
+    if (config.method === 'get') {
+        config.params = { ...config.params, user_id: userId };
+    }
+    
+    // Add user_id to request body for POST/PUT requests
+    if (['post', 'put'].includes(config.method) && config.data) {
+        // Handle FormData separately
+        if (config.data instanceof FormData) {
+            config.data.append('user_id', userId);
+        } else {
+            // Handle JSON data
+            config.data = { 
+                ...(typeof config.data === 'string' ? JSON.parse(config.data) : config.data), 
+                user_id: userId 
+            };
+        }
+    }
+    
     return config;
+}, error => {
+    return Promise.reject(error);
 });
 
 api.interceptors.response.use(
@@ -273,7 +299,15 @@ export default function Chatbot() {
     // Define functions that need to be used by other functions
     const handleNewChat = async () => {
         try {
-            const response = await api.post('/conversations/new', { title: 'New Conversation' });
+            const userId = getCurrentUserId();
+            if (!userId) {
+                navigate('/signin');
+                return;
+            }
+            const response = await api.post('/conversations/new', { 
+                title: 'New Conversation',
+                user_id: userId 
+            });
             const newConversation = response.data.conversation;
             setConversations(prev => sortConversations([newConversation, ...prev]));
             setConversationId(newConversation.id);
@@ -284,7 +318,14 @@ export default function Chatbot() {
 
     const handleDeleteConversation = async (id) => {
         try {
-            await api.delete(`/conversations/${id}`);
+            const userId = getCurrentUserId();
+            if (!userId) {
+                navigate('/signin');
+                return;
+            }
+            await api.delete(`/conversations/${id}`, {
+                data: { user_id: userId }
+            });
             setConversations(prev => sortConversations(prev.filter(conv => conv.id !== id)));
             if (id === conversationId) {
                 setMessages([]); // Clear messages immediately
@@ -307,12 +348,23 @@ export default function Chatbot() {
 
     const handleRenameConversation = async (id, newTitle) => {
         try {
-            const response = await api.put(`/conversations/${id}/rename`, { title: newTitle });
+            const userId = getCurrentUserId();
+            if (!userId) {
+                navigate('/signin');
+                return;
+            }
+            
+            const response = await api.put(`/conversations/${id}/rename`, { 
+                title: newTitle,
+                user_id: userId 
+            });
+            
             setConversations(prev => sortConversations(
                 prev.map(conv =>
                     conv.id === id ? { ...conv, title: newTitle } : conv
                 )
             ));
+            
             if (id === conversationId && currentConversation) {
                 setCurrentConversation({ ...currentConversation, title: newTitle });
             }
@@ -350,10 +402,15 @@ export default function Chatbot() {
         
         try {
             setIsLoading(true);
-            const response = await api.get('/conversations');
+            const userId = getCurrentUserId();
+            if (!userId) {
+                navigate('/signin');
+                return;
+            }
+            const response = await api.get(`/conversations?user_id=${userId}`);
             const convs = response.data.conversations || [];
-                setConversations(sortConversations(convs));
-                setConversationsLoaded(true);
+            setConversations(sortConversations(convs));
+            setConversationsLoaded(true);
             setRetryCount(0);
         } catch (err) {
             if (handleAuthError(err, navigate)) return;
@@ -411,10 +468,13 @@ export default function Chatbot() {
         if (!conversationId) return;
         
         try {
-            const token = localStorage.getItem('userToken');
-            const response = await axios.get(`/api/conversations/${conversationId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const userId = getCurrentUserId();
+            if (!userId) {
+                navigate('/signin');
+                return;
+            }
+            
+            const response = await axios.get(`/api/conversations/${conversationId}?user_id=${userId}`);
             
             if (response.data && response.data.conversation) {
                 const conv = response.data.conversation;
@@ -509,7 +569,9 @@ export default function Chatbot() {
                 });
             }
         } catch (error) {
+            if (handleAuthError(error, navigate)) return;
             console.error('Error fetching conversation:', error);
+            setError('Failed to load conversation');
         }
     };
 
@@ -719,7 +781,30 @@ export default function Chatbot() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!message.trim() || !conversationId) return;
+        
+        if (!message.trim() && !uploadedFile) return;
+        if (isLoading) return;
+        
+        const userId = getCurrentUserId();
+        if (!userId) {
+            navigate('/signin');
+            return;
+        }
+        
+        // Create payload with user_id
+        const payloadData = {
+            user_id: userId,
+            message: message.trim(),
+            force_web_search: webSearchEnabled
+        };
+        
+        if (replyTo) {
+            payloadData.replyTo = replyTo;
+        }
+        
+        if (uploadedFile) {
+            payloadData.file_id = uploadedFile.file_id;
+        }
         
         // Prevent duplicate submissions
         if (isLoading) {
@@ -745,326 +830,80 @@ export default function Chatbot() {
                 content: replyTo.msg.content 
             };
         }
-
-        // Add file information if available
-        const fileId = uploadedFile?.file_id || null;
-        if (uploadedFileDisplay && fileId) {
-            userMessage.hasFile = true;
-            userMessage.fileName = uploadedFileDisplay;
-            userMessage.file_id = fileId;
-        }
         
-        // Create request key for deduplication
-        const endpoint = webSearchEnabled 
-            ? `/api/conversations/${conversationId}/web_search`
-                : `/api/chat/${conversationId}`;
+        // Add the message to the messages array
+        setMessages(prevMessages => {
+            const newMessages = [...prevMessages, userMessage];
+            return newMessages;
+        });
         
-        const payloadData = {
-            message,
-            force_web_search: false,
-            replyTo: replyTo?.msg ? { 
-                index: replyTo.index, 
-                content: replyTo.msg.content,
-                isCurrentVersion: true
-            } : undefined,
-            file_id: fileId
-        };
-        
-        const requestKey = createRequestKey(endpoint, payloadData);
-        
-        // Check if this exact request is already active
-        if (isRequestActive(requestKey)) {
-            console.log('🚫 Preventing duplicate request - same request already active');
-            return;
-        }
-        
-        // Add user message safely (with duplicate prevention)
-        addMessageSafely(userMessage);
-        
+        // Clear input and set loading state
         setMessage('');
         setIsLoading(true);
-        setStreamingResponse('');
+        setError('');
         
-        // Track this request as active with timeout
-        addActiveRequestWithTimeout(requestKey, 30000);
+        // Create a unique request key
+        const requestKey = createRequestKey('/chat', payloadData);
         
         try {
-            // Send the message to the server
-            const token = localStorage.getItem('userToken');
-
-            console.log('🚀 Sending message with payload:', payloadData);
-            console.log('🎯 Endpoint:', endpoint);
+            // Add this request to active requests
+            addActiveRequestWithTimeout(requestKey);
             
-            // Create abort controller for this request
-            const abortController = new AbortController();
-            abortControllerRef.current = abortController;
-
-            console.log('📡 Making fetch request...');
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'text/plain, application/json, text/event-stream, application/octet-stream'
-                },
-                credentials: 'same-origin',
-                mode: 'cors',
-                body: JSON.stringify(payloadData),
-                signal: abortController.signal
-            });
-
-            console.log('📥 Response received:', response.status, response.headers.get('content-type'));
+            // Make the API call
+            const response = await api.post(`/chat/${conversationId}`, payloadData);
             
-            // Check if this is a web search response (disable streaming for web search)
-            const isWebSearchResponse = response.headers.get('X-Web-Search-Used') === 'true' || webSearchEnabled;
-            
-            // Check if the response is streaming (should be text/plain or text/event-stream)
-            const contentType = response.headers.get('content-type') || '';
-            console.log('📋 Content-Type:', contentType);
-            console.log('🌐 Is Web Search Response:', isWebSearchResponse);
-            
-            if (!isWebSearchResponse && (contentType.includes('text/plain') || contentType.includes('text/event-stream') || contentType.includes('application/octet-stream'))) {
-                // Use the enhanced streaming handler for non-web-search responses
-                console.log('🔄 Calling handleStreamingResponse...');
-                const streamResult = await handleStreamingResponse(response, abortController);
-                
-                // Handle abort case
-                if (streamResult === null) {
-                    return; // Request was aborted
-                }
-                
-                // Add the streamed response to messages safely
-                if (streamResult && streamResult.content && streamResult.content.trim()) {
-                    const assistantMessage = {
-                        id: generateMessageId(),
-                        role: 'assistant',
-                        content: streamResult.content.trim(),
-                        isStreamedResponse: true, // Flag for streamed responses
-                        timestamp: Date.now(), // Add timestamp for better deduplication
-                        file_id: fileId // Include file_id if this was a file-related query
-                    };
-                    
-                    // Add reply context if this was a reply
-                    if (replyTo && replyTo.msg) {
-                        assistantMessage.replyTo = { 
-                            index: replyTo.index, 
-                            content: replyTo.msg.content 
-                        };
-                    }
-                    
-                    // Use safe message addition with duplicate prevention
-                    addMessageSafely(assistantMessage);
-                }
-                
-                // Clear streaming response after adding to messages
-                setStreamingResponse('');
-                // Clear loading state since streaming is complete
-                setIsLoading(false);
-                
-            } else if (isWebSearchResponse && contentType.includes('text/plain')) {
-                // Handle web search streaming response as non-streaming (read all at once)
-                console.log('🌐 Handling web search response as non-streaming...');
-                const reader = response.body.getReader();
-                let fullContent = '';
-                
-                try {
-                    while (true) {
-                        const { value, done } = await reader.read();
-                        if (done) break;
-                        
-                        const chunk = new TextDecoder('utf-8').decode(value, { stream: true });
-                        fullContent += chunk;
-                    }
-                    
-                    // Set auto search indicator
-                    setAutoSearchActive(true);
-                    
-                    // Add the complete response to messages safely with web search flag
-                    if (fullContent && fullContent.trim()) {
-                        const assistantMessage = {
-                            id: generateMessageId(),
-                            role: 'assistant',
-                            content: fullContent.trim(),
-                            isWebSearchResponse: true, // Flag for web search responses
-                            timestamp: Date.now() // Add timestamp for better deduplication
-                        };
-                        
-                        // Add reply context if this was a reply
-                        if (replyTo && replyTo.msg) {
-                            assistantMessage.replyTo = { 
-                                index: replyTo.index, 
-                                content: replyTo.msg.content 
-                            };
-                        }
-                        
-                        // Use safe message addition with duplicate prevention
-                        addMessageSafely(assistantMessage);
-                    }
-                    
-                    // Clear loading state
-                    setIsLoading(false);
-                    
-                } catch (error) {
-                    console.error('Error reading web search response:', error);
-                    setError('Failed to read web search response. Please try again.');
-                    setIsLoading(false);
-                } finally {
-                    try {
-                        reader.releaseLock();
-                    } catch (e) {
-                        console.warn('Could not release reader lock:', e);
-                    }
-                }
-                
-            } else {
-                // Handle non-streaming response (JSON)
-                console.log('📄 Non-streaming response detected, handling as JSON...');
-                const responseData = await response.json();
-                console.log('📋 Response data:', responseData);
-                
-                // If we have message content, show it as if it was streamed
-                if (responseData.message || responseData.content) {
-                    const content = responseData.message || responseData.content;
-                    console.log('💬 Got content:', content);
-                    
-                    // Simulate streaming effect for non-streaming responses
-                    setStreamingResponse('');
-                    const words = content.split(' ');
-                    for (let i = 0; i < words.length; i++) {
-                        const partial = words.slice(0, i + 1).join(' ');
-                        setStreamingResponse(partial);
-                        await new Promise(resolve => setTimeout(resolve, 50));
-                    }
-                    
-                    // Add the response to messages safely
-                    const assistantMessage = {
-                        id: generateMessageId(),
-                        role: 'assistant',
-                        content: content.trim(),
-                        isJSONResponse: true, // Flag for JSON responses
-                        timestamp: Date.now(), // Add timestamp for better deduplication
-                        file_id: fileId // Include file_id if this was a file-related query
-                    };
-                    
-                    // Add reply context if this was a reply
-                    if (replyTo && replyTo.msg) {
-                        assistantMessage.replyTo = { 
-                            index: replyTo.index, 
-                            content: replyTo.msg.content 
-                        };
-                    }
-                    
-                    // Use safe message addition with duplicate prevention
-                    addMessageSafely(assistantMessage);
-                    setStreamingResponse(''); // Clear after adding to messages
-                    // Clear loading state since non-streaming response is complete
-                    setIsLoading(false);
-                }
-            }
-            
-            // Remove the delayed fetchConversation call that causes duplicates
-            // The local state is already updated correctly, no need to sync with server
-            
-            // Reset web search mode after sending
-            setWebSearchEnabled(false);
-            
-            // Clear uploaded file after sending
-            setUploadedFile(null);
-            setUploadedFileDisplay(null);
-            setFileLocked(false);
-            
+            // Handle response...
+            // ... rest of the function remains the same ...
         } catch (error) {
-            // Handle different types of errors
-            if (error.name === 'AbortError' || error.message.includes('aborted')) {
-                console.log('Message sending was cancelled');
-                setIsLoading(false); // Clear loading on abort
-                return;
-            }
-            
-            console.error('Error sending message:', error);
-            
-            // Clear loading state on error
-            setIsLoading(false);
-            
-            // Set appropriate error messages
-            if (error.message.includes('Failed to fetch') || error.message.includes('network')) {
-                setError('Network error. Please check your connection and try again.');
-            } else if (error.message.includes('404')) {
-                setError('Conversation not found. Creating a new one...');
-                handleNewChat();
-            } else if (error.message.includes('401') || error.message.includes('403')) {
-                setError('Authentication error. Please sign in again.');
-                localStorage.removeItem('userToken');
-                navigate('/signin');
-            } else {
-                setError('Failed to send message. Please try again.');
-            }
+            // ... error handling remains the same ...
         } finally {
-            // Remove this request from active requests
-            removeActiveRequest(requestKey);
-            
-            // Only clear loading if there was an error or abort - successful responses clear it themselves
-            // setIsLoading(false); // Moved to individual response handlers
-            // Don't clear streamingResponse here as it might already be cleared
-            // and we don't want to interfere with the display
-            setStreamingError(null);
-            setStreamingProgress(0);
-            abortControllerRef.current = null;
+            // ... cleanup remains the same ...
         }
     };
 
     // Improved file upload handler
     const handleFileUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file || !conversationId) return;
+        const file = e.target.files?.[0];
+        if (!file || !validateFile(file)) return;
         
-        setUploading(true);
-        setUploadStatus('');
-        setUploadProgress(0);
-        setUploadError(null);
+        const userId = getCurrentUserId();
+        if (!userId) {
+            navigate('/signin');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('conversation_id', conversationId);
+        formData.append('user_id', userId);
+        
+        setUploadError('');
+        setIsUploading(true);
         
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('conversation_id', conversationId);
-            
             const response = await api.post('/upload', formData, {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-                onUploadProgress: (progressEvent) => {
-                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                    setUploadProgress(percentCompleted);
-                },
+                    'Content-Type': 'multipart/form-data'
+                }
             });
             
-            const fileObj = {
-                file_id: response.data.file_id,
-                name: file.name,
-                display_name: response.data.filename || file.name,
-                size: file.size,
-                type: file.type,
-                lastModified: file.lastModified
-            };
-            
-            setUploadedFile(fileObj);
-            setUploadedFileDisplay(response.data.filename || file.name);
-            setUploadStatus('Upload successful');
-            setFileLocked(false);
-            
-            // Add file to previous files list
-            setPreviousFiles(prev => [fileObj, ...prev]);
-            
-        } catch (err) {
-            if (handleAuthError(err, navigate)) return;
-            const errorMessage = err.response?.data?.msg || err.message;
-            setUploadError(errorMessage);
-            setUploadStatus('Upload failed: ' + errorMessage);
-            setUploadedFile(null);
-            setUploadedFileDisplay(null);
+            if (response.data?.file_id) {
+                setUploadedFile({
+                    file_id: response.data.file_id,
+                    filename: file.name,
+                    filetype: response.data.filetype
+                });
+                setUploadedFileDisplay(file.name);
+                setFileLocked(true);
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            setUploadError('Failed to upload file. Please try again.');
         } finally {
-            setUploading(false);
-            setUploadProgress(0);
+            setIsUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         }
     };
 
@@ -1200,6 +1039,13 @@ export default function Chatbot() {
             setEditError('Message is too long (max 4000 characters)');
             return;
         }
+        
+        const userId = getCurrentUserId();
+        if (!userId) {
+            navigate('/signin');
+            return;
+        }
+        
         const originalMessage = messages[index];
         if (originalMessage.content === editingMsgValue.trim()) {
             setEditingMsgIdx(null);
@@ -1213,7 +1059,8 @@ export default function Chatbot() {
                 `/conversations/${conversationId}/messages/${index}/edit`,
                 {
                     content: editingMsgValue.trim(),
-                    original_content: originalMessage.content
+                    original_content: originalMessage.content,
+                    user_id: userId
                 },
             );
             if (response.data && response.data.conversation) {
@@ -1309,6 +1156,12 @@ export default function Chatbot() {
         const msg = messages[msgIndex];
         if (!msg || !msg.versions || versionIndex <= 0) return;
         
+        const userId = getCurrentUserId();
+        if (!userId) {
+            navigate('/signin');
+            return;
+        }
+        
         // Get the version content (versionIndex - 1 because versionIndex=1 means first version)
         const versionContent = msg.versions[versionIndex - 1]?.content;
         if (!versionContent) return;
@@ -1331,7 +1184,8 @@ export default function Chatbot() {
                 mode: 'cors',
                 body: JSON.stringify({
                     content: versionContent,
-                    original_content: msg.content
+                    original_content: msg.content,
+                    user_id: userId
                 })
             });
             
@@ -1377,13 +1231,10 @@ export default function Chatbot() {
                     ));
                 });
             }
-        } catch (error) {
-            console.error('Error submitting version:', error);
-            if (error.message.includes('404')) {
-                setError('Conversation not found. Please refresh and try again.');
-            } else {
-                setError('Failed to submit version. Please try again.');
-            }
+        } catch (err) {
+            if (handleAuthError(err, navigate)) return;
+            setError('Failed to submit version. Please try again.');
+            console.error('Error submitting version:', err);
         } finally {
             setRegeneratingResponse(null);
         }

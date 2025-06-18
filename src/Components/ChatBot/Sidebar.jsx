@@ -3,6 +3,8 @@ import axios from 'axios';
 import style from './Sidebar.module.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LuPanelLeft, LuPanelRight } from 'react-icons/lu';
+import { getCurrentUserId } from '../../Utils/jwtUtils';
+import { useNavigate } from 'react-router-dom';
 
 const Sidebar = ({
     conversations,
@@ -23,6 +25,7 @@ const Sidebar = ({
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteConvId, setDeleteConvId] = useState(null);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (!search.trim()) {
@@ -33,10 +36,12 @@ const Sidebar = ({
         setSearching(true);
         const timeout = setTimeout(async () => {
             try {
-                const token = localStorage.getItem('userToken');
-                const res = await axios.get(`/api/conversations/search?q=${encodeURIComponent(search)}`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const userId = getCurrentUserId();
+                if (!userId) {
+                    navigate('/signin');
+                    return;
+                }
+                const res = await axios.get(`/api/conversations/search?q=${encodeURIComponent(search)}&user_id=${userId}`);
                 setSearchResults(res.data.results || []);
             } catch (err) {
                 console.error('Search failed:', err);
@@ -46,7 +51,7 @@ const Sidebar = ({
             }
         }, 300);
         return () => clearTimeout(timeout);
-    }, [search]);
+    }, [search, navigate]);
 
     const handleEdit = (conv) => {
         setEditingId(conv.id);
@@ -55,6 +60,11 @@ const Sidebar = ({
 
     const handleSave = async (id) => {
         if (editTitle.trim()) {
+            const userId = getCurrentUserId();
+            if (!userId) {
+                navigate('/signin');
+                return;
+            }
             const result = await onRenameConversation(id, editTitle.trim());
             if (result && result.error) {
                 setErrorModal({ open: true, message: result.error });
